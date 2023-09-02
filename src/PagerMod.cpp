@@ -1,7 +1,7 @@
 #include<Arduino.h>
 #include<RadioLib.h>
 #include "BCH3121.h"
-#include "utilities.h"
+#include "networks.h"
 
 
 int16_t PagerClient::readDataMod(String &str, size_t len, uint32_t *addr, uint32_t *func, bool* add, size_t* clen) {
@@ -249,9 +249,6 @@ int16_t PagerClient::readDataM(uint8_t *data, size_t *len, uint32_t *addr, uint3
 
 int16_t PagerClient::readDataMSA(struct PagerClient::pocsag_data *p, size_t len) {
     int16_t state = RADIOLIB_ERR_NONE;
-
-
-
     bool complete = false;
     uint8_t framePos = 0;
     uint32_t addr_next = 0;

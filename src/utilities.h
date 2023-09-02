@@ -21,9 +21,6 @@
 
 // #define LoRa_frequency      915.0
 
-#define POCDAT_SIZE 16 // defines number of the pocsag data structures.
-
-
 #define UNUSE_PIN                   (0)
 
 #if defined(LILYGO_TBeam_V0_7)
