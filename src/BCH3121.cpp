@@ -29,6 +29,9 @@
  *   https://web.stanford.edu/class/ee387/handouts/notes16.pdf
  *   https://www.ece.jhu.edu/~cooper/ERROR_CONTROL_CODING/06dec.pdf
 */
+/* todo: this BCH(31,21) Correction code seems didn't take the advantages of even parity checking bit,
+ *  consider switch to Multimon-NG's BCH correction codes.
+ */
 
 // Polynomial form of alpha^i, GF(2^5), using irreducible polynomial: p(X) = X^5 + X^2 + 1
 // See http://pnrsolution.org/Datacenter/Vol3/Issue2/250.pdf (Table I)

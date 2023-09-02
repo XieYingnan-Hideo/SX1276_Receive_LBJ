@@ -7,6 +7,6 @@
 
 //#define RADIOLIB_DEBUG
 //#define RADIOLIB_VERBOSE
-#define RADIOLIB_GODMODE
+//#define RADIOLIB_GODMODE
 
 #endif

@@ -35,11 +35,23 @@ bool connectWiFi(const char* ssid, const char* password, int max_tries, int paus
     return isConnected();
 }
 
+/* ------------------------------------------------ */
+
 void timeAvailable(struct timeval *t){
-    Serial.println("Got time adjustment from NTP!");
+    Serial.println("[SNTP] Got time adjustment from NTP!");
     getLocalTime(&time_info);
-    Serial.println(&time_info, "%Y-%m-%d %H:%M:%S");
+    Serial.println(&time_info, "[SNTP] %Y-%m-%d %H:%M:%S");
 }
+
+//void printLocalTime()
+//{
+//    struct tm timeinfo;
+//    if(!getLocalTime(&timeinfo)){
+//        Serial.println("No time available (yet)");
+//        return;
+//    }
+//    Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+//}
 
 /* ------------------------------------------------ */
 
@@ -50,13 +62,13 @@ void onTelnetConnect(String ip) {
     Serial.println(" connected");
 
     telnet.println("===[ESP32 DEV MODULE TELNET SERVICE]===");
-    getLocalTime(&time_info);
+    getLocalTime(&time_info,10);
     char timeStr[20];
     sprintf(timeStr, "%d-%02d-%02d %02d:%02d:%02d", time_info.tm_year+1900, time_info.tm_mon+1, time_info.tm_mday,
             time_info.tm_hour, time_info.tm_min, time_info.tm_sec);
     telnet.print("System time is ");
     telnet.print(timeStr);
-    telnet.println("\nWelcome " + telnet.getIP());
+    telnet.println("\n\rWelcome " + telnet.getIP());
     telnet.println("(Use ^] + q  to disconnect.)");
     telnet.println("=======================================");
     telnet.print("< ");
@@ -84,7 +96,7 @@ void onTelnetInput(String str) {
     // checks for a certain command
     if (str == "ping") {
         telnet.println("> pong");
-        Serial.println("[Telnet]> pong");
+        Serial.println("[Telnet] > pong");
         // disconnect the client
     } else if (str == "bye") {
         telnet.println("> disconnecting you...");
@@ -179,7 +191,7 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l){
                      * XXXXX --- -----XXXXX20201100600430U-(2 9U- (-(2020----------XXXXX--000
                      * we have to process them as type 1.
                      */
-                    if (!(p[i].str.length() == 65 || p[i].str.length() == 70)){
+                    if (!(p[i].str.length() == 65 || p[i].str.length() >= 70 )){
                         break;
                     }
                 }
@@ -191,8 +203,11 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l){
                 {
                     if (p[i].str.length() == 65)
                         p[i].str = p[i].str.substring(15);
-                    else if (p[i].str.length() == 70)
+                    else if (p[i].str.length() == 70 || (p[i].str.length() >= 70 && p[i].str[67] == '0'
+                            && p[i].str[68] == '0' && p[i].str[69] == '0'))
                         p[i].str = p[i].str.substring(20);
+                    else
+                        break;
                 }
                 /*
                  * The LBJ Additional info message does not appear on any standards,
@@ -291,6 +306,7 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l){
                         l->route[c] = (int8_t) ((a << 4) | b);
                     }
                 }
+                gbk2utf8(l->route,l->route_utf8,17);
                 break;
             }
             case LBJ_SYNC_ADDR:
@@ -347,6 +363,94 @@ void recodeBCD( char* c){
             // 最好能改成单次转换...这样未免有点太浪费性能了
     }
 }
+
+/*---------------------------------------------------------*/
+
+int enc_unicode_to_utf8_one(unsigned long unic,unsigned char *pOutput)
+{
+    assert(pOutput != NULL);
+
+    if (unic <= 0x0000007F)
+    {
+        // * U-00000000 - U-0000007F:  0xxxxxxx
+        *pOutput     = (unic & 0x7F);
+        return 1;
+    }
+    else if (unic >= 0x00000080 && unic <= 0x000007FF)
+    {
+        // * U-00000080 - U-000007FF:  110xxxxx 10xxxxxx
+        *(pOutput + 1) = (unic & 0x3F) | 0x80;
+        *pOutput     = ((unic >> 6) & 0x1F) | 0xC0;
+        return 2;
+    }
+    else if (unic >= 0x00000800 && unic <= 0x0000FFFF)
+    {
+        // * U-00000800 - U-0000FFFF:  1110xxxx 10xxxxxx 10xxxxxx
+        *(pOutput + 2) = (unic & 0x3F) | 0x80;
+        *(pOutput + 1) = ((unic >>  6) & 0x3F) | 0x80;
+        *pOutput     = ((unic >> 12) & 0x0F) | 0xE0;
+        return 3;
+    }
+    else if (unic >= 0x00010000 && unic <= 0x001FFFFF)
+    {
+        // * U-00010000 - U-001FFFFF:  11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+        *(pOutput + 3) = (unic & 0x3F) | 0x80;
+        *(pOutput + 2) = ((unic >>  6) & 0x3F) | 0x80;
+        *(pOutput + 1) = ((unic >> 12) & 0x3F) | 0x80;
+        *pOutput     = ((unic >> 18) & 0x07) | 0xF0;
+        return 4;
+    }
+    else if (unic >= 0x00200000 && unic <= 0x03FFFFFF)
+    {
+        // * U-00200000 - U-03FFFFFF:  111110xx 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx
+        *(pOutput + 4) = (unic & 0x3F) | 0x80;
+        *(pOutput + 3) = ((unic >>  6) & 0x3F) | 0x80;
+        *(pOutput + 2) = ((unic >> 12) & 0x3F) | 0x80;
+        *(pOutput + 1) = ((unic >> 18) & 0x3F) | 0x80;
+        *pOutput     = ((unic >> 24) & 0x03) | 0xF8;
+        return 5;
+    }
+    else if (unic >= 0x04000000 && unic <= 0x7FFFFFFF)
+    {
+        // * U-04000000 - U-7FFFFFFF:  1111110x 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx
+        *(pOutput + 5) = (unic & 0x3F) | 0x80;
+        *(pOutput + 4) = ((unic >>  6) & 0x3F) | 0x80;
+        *(pOutput + 3) = ((unic >> 12) & 0x3F) | 0x80;
+        *(pOutput + 2) = ((unic >> 18) & 0x3F) | 0x80;
+        *(pOutput + 1) = ((unic >> 24) & 0x3F) | 0x80;
+        *pOutput     = ((unic >> 30) & 0x01) | 0xFC;
+        return 6;
+    }
+
+    return 0;
+}
+
+void gbk2utf8(uint8_t *gbk,uint8_t *utf8,size_t gbk_len){
+    uint16_t unic[gbk_len];
+    size_t c=0;
+    for (size_t i=0;i<gbk_len;i++,c++){
+        if (gbk[i] < 0x80){
+            unic[c] = gbk[i];
+        } else {
+            unic[c] = ff_oem2uni((uint16_t) (gbk[i] << 8 | gbk[i + 1]), 936);
+            i++;
+        }
+    }
+    printf("%zu:%x/", c,unic[c-1]);
+    c=0;
+    size_t i=0;
+    for (;i<gbk_len*2;i++,c++){
+        uint8_t ut8[4];
+        int r = enc_unicode_to_utf8_one(unic[c],ut8);
+        if (i+4<gbk_len*2) {
+            if (r == 1) utf8[i] = ut8[0];
+            else if (r == 2) utf8[i] = ut8[0], utf8[++i] = ut8[1];
+            else if (r == 3) utf8[i] = ut8[0], utf8[++i] = ut8[1], utf8[++i] = ut8[2];
+            else if (r == 4) utf8[i] = ut8[0], utf8[++i] = ut8[1], utf8[++i] = ut8[2], utf8[++i] = ut8[3];
+        }
+    }
+}
+
 
 
 

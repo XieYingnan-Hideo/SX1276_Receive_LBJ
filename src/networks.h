@@ -10,6 +10,7 @@
 #include "sntp.h"
 #include "ESPTelnet.h"
 #include <RadioLib.h>
+#include "unicon.h"
 
 /* ------------------------------------------------ */
 #define LBJ_INFO_ADDR 1234000
@@ -29,7 +30,8 @@ struct lbj_data{
     char info2_hex[51] = "<NUL>";
     char lbj_class[3] = "NA"; // '0X' or ' X'
     char loco[9] = "<NUL>"; // such as 23500331
-    char route[17] = "********"; // 16 bytes GBK data.
+    uint8_t route[17] = "********"; // 16 bytes GBK data.
+    uint8_t route_utf8[17*2] = "********";
     char pos_lon_deg[4] = ""; // ---
     char pos_lon_min[8] = ""; // --.----
     char pos_lat_deg[3] = ""; // --
@@ -70,5 +72,8 @@ void setupTelnet();
 
 int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l);
 void recodeBCD(char *c);
+
+int enc_unicode_to_utf8_one(unsigned long unic,unsigned char *pOutput);
+void gbk2utf8(uint8_t *gbk,uint8_t *utf8,size_t gbk_len);
 
 #endif //PAGER_RECEIVE_NETWORKS_H
