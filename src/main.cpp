@@ -20,14 +20,15 @@
    For full API reference, see the GitHub Pages
    https://jgromes.github.io/RadioLib/
 */
-
+#pragma execution_character_set("utf-8")
 // include the library
 #include "boards.h"
 #include <RadioLib.h>
 #include <WiFi.h>
 #include "sntp.h"
 #include "networks.h"
-#include "iconv.h"
+#include "sdlog.h"
+
 // definitions
 
 
@@ -44,6 +45,8 @@ uint64_t timer1 = 0;
 uint64_t timer2 = 0;
 uint32_t ip_last = 0;
 bool is_startline = true;
+
+SD_LOG sd1(SD);
 
 // functions
 
@@ -112,13 +115,70 @@ void dualPrintln(const char* fmt){
     telnet.println(fmt);
 }
 
+void LBJTEST(){
+    PagerClient::pocsag_data pocdat[8];
+    pocdat[0].str = "37012  28  1503";pocdat[0].addr = 1234000;pocdat[0].func = 1;pocdat[0].is_empty = false;pocdat[0].len = 15;
+    pocdat[1].str = "20202350025730U-(2 9U- (-(202011719157439058013000";pocdat[1].addr = 1234002;pocdat[1].func = 1;pocdat[1].is_empty = false;pocdat[1].len = 0;
+    Serial.println("[LBJ] 测试输出 机车编号 位置 XX°XX′XX″ ");
+    dualPrintf(false,"[LBJ] 测试输出 机车编号 位置 XX°XX′XX″ \n");
+    struct lbj_data lbj;
+    for (auto & i : pocdat){
+        if (i.is_empty)
+            continue;
+        float ber = (float) i.errs_total / ( ((float)i.len/5)*32);
+        dualPrintf(true,"[Pager] %d/%d: %s  [ERR %d/%d/%zu, BER %.2f%%]\n", i.addr, i.func,
+                   i.str.c_str(), i.errs_uncorrected, i.errs_total,(i.len/5)*32,ber * 100);
+        sd1.append("[Pager] %d/%d: %s  [ERR %d/%d/%zu, BER %.2f%%]\n", i.addr, i.func,
+                   i.str.c_str(), i.errs_uncorrected, i.errs_total,(i.len/5)*32,ber * 100);
+    }
+
+    readDataLBJ(pocdat,&lbj);
+
+    // print data in lbj format.
+    if (lbj.type == 2)          // Time sync
+        dualPrintf(true,"[LBJ] 当前时间 %s \n",lbj.time);
+    else if (lbj.type == 1) {     // Additional
+        if (lbj.direction == FUNCTION_UP)
+            dualPrintf(true,"[LBJ] 方向：上行  ");
+        else if (lbj.direction == FUNCTION_DOWN)
+            dualPrintf(true,"[LBJ] 方向：下行  ");
+        else
+            dualPrintf(true,"[LBJ] 方向：%3d  ", lbj.direction);
+
+        dualPrintf(true,"车次：%s%s  速度：%6s KM/H  公里标：%8s KM\n",lbj.lbj_class,
+                   lbj.train,lbj.speed,lbj.position);
+
+        dualPrintf(true,"[LBJ] 机车编号：%s  线路：%s  ",lbj.loco, lbj.route_utf8);
+
+        if (lbj.pos_lat_deg[1] && lbj.pos_lat_min[1])
+            dualPrintf(true,"位置：%s°%2s′ ", lbj.pos_lat_deg, lbj.pos_lat_min);
+        else
+            dualPrintf(true,"位置：%s ",lbj.pos_lat);
+        if (lbj.pos_lon_deg[1] && lbj.pos_lon_min[1])
+            dualPrintf(true,"%s°%2s′\n",lbj.pos_lon_deg,lbj.pos_lon_min);
+        else
+            dualPrintf(true,"%s\n",lbj.pos_lon);
+
+    } else if (lbj.type == 0) {      // Standard
+        if (lbj.direction == FUNCTION_UP)
+            dualPrintf(true,"[LBJ] 方向：上行  ");
+        else if (lbj.direction == FUNCTION_DOWN)
+            dualPrintf(true,"[LBJ] 方向：下行  ");
+        else
+            dualPrintf(true,"[LBJ] 方向：%3d  ",lbj.direction);
+        dualPrintf(true,"车次：%7s  速度：%6s KM/H  公里标：%8s KM\n",lbj.train,lbj.speed,lbj.position);
+    }
+}
+
 // SETUP
 
 void setup() {\
     timer2 = millis();
     initBoard();
     delay(1500);
-
+    if(have_sd){
+        sd1.begin("/LOGTEST");
+    }
     // Sync time.
 
     sntp_set_time_sync_notification_cb( timeAvailable );
@@ -185,8 +245,11 @@ void setup() {\
 
     digitalWrite(BOARD_LED, LOW);
     Serial.printf("Booting time %llu ms\n",millis()-timer2);
+    sd1.append("启动用时 %lu ms\n",millis()-timer2);
     timer2 = 0;
 
+    // test stuff
+    // LBJTEST();
 }
 
 // LOOP
@@ -249,6 +312,8 @@ void loop() {
                 float ber = (float) i.errs_total / ( ((float)i.len/5)*32);
                 dualPrintf(true,"[Pager] %d/%d: %s  [ERR %d/%d/%zu, BER %.2f%%]\n", i.addr, i.func,
                        i.str.c_str(), i.errs_uncorrected, i.errs_total,(i.len/5)*32,ber * 100);
+                sd1.append("[Pager] %d/%d: %s  [ERR %d/%d/%zu, BER %.2f%%]\n", i.addr, i.func,
+                           i.str.c_str(), i.errs_uncorrected, i.errs_total,(i.len/5)*32,ber * 100);
                 str = str + "  " + i.str;
             }
 
@@ -257,7 +322,7 @@ void loop() {
 
             // print data in lbj format.
             if (lbj.type == 2)          // Time sync
-                dualPrintf(true,"[LBJ] Current Time %s \n",lbj.time);
+                dualPrintf(true,"[LBJ] 当前时间 %s \n",lbj.time);
             else if (lbj.type == 1) {     // Additional
                 if (lbj.direction == FUNCTION_UP)
                     dualPrintf(true,"[LBJ] 方向：上行  ");
@@ -265,9 +330,12 @@ void loop() {
                     dualPrintf(true,"[LBJ] 方向：下行  ");
                 else
                     dualPrintf(true,"[LBJ] 方向：%3d  ", lbj.direction);
-                dualPrintf(true,"车次：%s%s  速度：%6s KM/H  公里标：%8s KM\n"); // todo: 想办法显示等级的时候把车次前面的空格去了...
-                dualPrintf("[LBJ] 机车编号：%s  线路：%s  ", lbj.lbj_class, lbj.train, lbj.speed, lbj.position,
-                       lbj.loco, lbj.route);
+
+                dualPrintf(true,"车次：%s%s  速度：%6s KM/H  公里标：%8s KM\n",lbj.lbj_class,
+                           lbj.train,lbj.speed,lbj.position); // todo: 想办法显示等级的时候把车次前面的空格去了...
+
+                dualPrintf(true,"[LBJ] 机车编号：%s  线路：%s  ",lbj.loco, lbj.route_utf8);
+
                 if (lbj.pos_lat_deg[1] && lbj.pos_lat_min[1])
                     dualPrintf(true,"位置：%s°%2s′ ", lbj.pos_lat_deg, lbj.pos_lat_min);
                 else
@@ -287,10 +355,51 @@ void loop() {
                 dualPrintf(true,"车次：%7s  速度：%6s KM/H  公里标：%8s KM\n",lbj.train,lbj.speed,lbj.position);
             }
 
+            switch(lbj.type){
+                case 0:
+                {
+                    if (lbj.direction == FUNCTION_UP)
+                        sd1.append("[LBJ] 方向：上行  ");
+                    else if (lbj.direction == FUNCTION_DOWN)
+                        sd1.append("[LBJ] 方向：下行  ");
+                    else
+                        sd1.append("[LBJ] 方向：%3d  ", lbj.direction);
+                    sd1.append("车次：%7s  速度：%6s KM/H  公里标：%8s KM\n",lbj.train,lbj.speed,lbj.position);
+                    break;
+                }
+                case 1:
+                {
+                    if (lbj.direction == FUNCTION_UP)
+                        sd1.append("[LBJ] 方向：上行  ");
+                    else if (lbj.direction == FUNCTION_DOWN)
+                        sd1.append("[LBJ] 方向：下行  ");
+                    else
+                        sd1.append("[LBJ] 方向：%3d  ", lbj.direction);
+                    sd1.append("车次：%s%s  速度：%6s KM/H  公里标：%8s KM\n",lbj.lbj_class,
+                               lbj.train,lbj.speed,lbj.position);
+                    sd1.append("[LBJ] 机车编号：%s  线路：%s  ",lbj.loco, lbj.route_utf8);
+                    if (lbj.pos_lat_deg[1] && lbj.pos_lat_min[1])
+                        sd1.append("位置：%s°%2s′ ", lbj.pos_lat_deg, lbj.pos_lat_min);
+                    else
+                        sd1.append("位置：%s ",lbj.pos_lat);
+                    if (lbj.pos_lon_deg[1] && lbj.pos_lon_min[1])
+                        sd1.append("%s°%2s′\n",lbj.pos_lon_deg,lbj.pos_lon_min);
+                    else
+                        sd1.append("%s\n",lbj.pos_lon);
+                    break;
+                }
+                case 2:
+                {
+                    sd1.append("[LBJ] 当前时间 %s \n",lbj.time);
+                    break;
+                }
+            }
+
             // print rssi
             dualPrintf(true,"[SX1276] RSSI:  ");
             dualPrintf(true,"%.2f",rssi);
             dualPrintf(true," dBm  ");
+            sd1.append("[SX1276] RSSI: %.2f dBm    Frequency Error: %.2f Hz \n",rssi,fer);
             rssi = 0;
 
             // print Frequency Error
@@ -315,9 +424,11 @@ void loop() {
 //            Serial.printf("failed.\n");
 //            Serial.println("[Pager] Reception failed, too many errors.");
             dualPrintf(true,"[Pager] Reception failed, too many errors. \n");
+            sd1.append("[Pager] Reception failed, too many errors. \n");
         }
         else {
             // some error occurred
+            sd1.append("[Pager] Reception failed, code %d \n",state);
             dualPrintf(true,"[Pager] Reception failed, code %d \n",state);
         }
         Serial.printf("[Pager] Processing time %llu ms.\n",millis()-timer2);

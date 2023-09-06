@@ -301,7 +301,7 @@ void disablePeripherals()
 #endif
 
 SPIClass SDSPI(HSPI);
-
+bool have_sd = false;
 
 void initBoard()
 {
@@ -397,6 +397,7 @@ void initBoard()
         }
 
     } else {
+        have_sd = true;
         uint32_t cardSize = SD.cardSize() / (1024 * 1024);
         if (u8g2) {
             do {

@@ -269,40 +269,41 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l){
 
                 // reformat to hexadecimal string.
                 for (char & c : p[i].str){
-                    recodeBCD(&c);
+                    recodeBCD(&c,&l->info2_hex);
                 }
+
                 // BCD to HEX and to ASCII for class
-                if (p[i].str.length() >= 4 && p[i].str[0] != 'X') {
+                if (l->info2_hex.length() >= 4 && l->info2_hex[0] != 'X') {
                     // this is very likely the most ugly code I've ever write, I apologize for that.
                     size_t c = 0;
                     for (size_t v = 0; v < 3; v++, c++) {
-                        int a = isdigit(p[i].str[v]) ? (p[i].str[v] - '0') : (p[i].str[v] - '0' - 7),
-                                b = isdigit(p[i].str[v + 1]) ? (p[i].str[++v] - '0') : (p[i].str[++v] - '0' - 7);
+                        int a = isdigit(l->info2_hex[v]) ? (l->info2_hex[v] - '0') : (l->info2_hex[v] - '0' - 7),
+                                b = isdigit(l->info2_hex[v + 1]) ? (l->info2_hex[++v] - '0') : (l->info2_hex[++v] - '0' - 7);
                         l->lbj_class[c] = (int8_t) ((a << 4) | b);
                     }
                 }
                 // to GBK for route.
-                if (p[i].str.length() >= 20 && p[i].str[14] != 'X' && p[i].str[15] != 'X') { // Character 1
+                if (l->info2_hex.length() >= 20 && l->info2_hex[14] != 'X' && l->info2_hex[15] != 'X') { // Character 1
                     size_t c = 0;
                     for (size_t v = 14; v < 17; v++, c++) {
-                        int a = isdigit(p[i].str[v]) ? (p[i].str[v] - '0') : (p[i].str[v] - '0' - 7),
-                                b = isdigit(p[i].str[v + 1]) ? (p[i].str[++v] - '0') : (p[i].str[++v] - '0' - 7);
+                        int a = isdigit(l->info2_hex[v]) ? (l->info2_hex[v] - '0') : (l->info2_hex[v] - '0' - 7),
+                                b = isdigit(l->info2_hex[v + 1]) ? (l->info2_hex[++v] - '0') : (l->info2_hex[++v] - '0' - 7);
                         l->route[c] = (int8_t) ((a << 4) | b);
                     }
                 }
-                if (p[i].str.length() >= 25 && p[i].str[18] != 'X' && p[i].str[20] != 'X') {// Character 2
+                if (l->info2_hex.length() >= 25 && l->info2_hex[18] != 'X' && l->info2_hex[20] != 'X') {// Character 2
                     size_t c = 2;
                     for (size_t v = 18; v < 21; v++, c++) {
-                        int a = isdigit(p[i].str[v]) ? (p[i].str[v] - '0') : (p[i].str[v] - '0' - 7),
-                                b = isdigit(p[i].str[v + 1]) ? (p[i].str[++v] - '0') : (p[i].str[++v] - '0' - 7);
+                        int a = isdigit(l->info2_hex[v]) ? (l->info2_hex[v] - '0') : (l->info2_hex[v] - '0' - 7),
+                                b = isdigit(l->info2_hex[v + 1]) ? (l->info2_hex[++v] - '0') : (l->info2_hex[++v] - '0' - 7);
                         l->route[c] = (int8_t) ((a << 4) | b);
                     }
                 }
-                if (p[i].str.length() >= 30 && p[i].str[22] != 'X' && p[i].str[25] != 'X') {// Character 3,4
+                if (l->info2_hex.length() >= 30 && l->info2_hex[22] != 'X' && l->info2_hex[25] != 'X') {// Character 3,4
                     size_t c = 4;
                     for (size_t v = 22; v < 29; v++, c++) {
-                        int a = isdigit(p[i].str[v]) ? (p[i].str[v] - '0') : (p[i].str[v] - '0' - 7),
-                                b = isdigit(p[i].str[v + 1]) ? (p[i].str[++v] - '0') : (p[i].str[++v] - '0' - 7);
+                        int a = isdigit(l->info2_hex[v]) ? (l->info2_hex[v] - '0') : (l->info2_hex[v] - '0' - 7),
+                                b = isdigit(l->info2_hex[v + 1]) ? (l->info2_hex[++v] - '0') : (l->info2_hex[++v] - '0' - 7);
                         l->route[c] = (int8_t) ((a << 4) | b);
                     }
                 }
@@ -321,43 +322,47 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l){
                 }
                 break;
             }
-
         }
     }
 
     return 0;
 }
 
-void recodeBCD( char* c){
+void recodeBCD( const char* c, String* v){
     switch (*c) {
         case '*':
         {
-            *c = 'A';
+            *v += 'A';
             break;
         }
         case 'U':
         {
-            *c = 'B';
+            *v += 'B';
             break;
         }
         case ' ':
         {
-            *c = 'C';
+            *v += 'C';
             break;
         }
         case '-':
         {
-            *c = 'D';
+            *v += 'D';
             break;
         }
         case ')':
         {
-            *c = 'E';
+            *v += 'E';
             break;
         }
         case '(':
         {
-            *c = 'F';
+            *v += 'F';
+            break;
+        }
+        default:
+        {
+            *v += *c;
             break;
         }
             // 最好能改成单次转换...这样未免有点太浪费性能了
@@ -368,7 +373,7 @@ void recodeBCD( char* c){
 
 int enc_unicode_to_utf8_one(unsigned long unic,unsigned char *pOutput)
 {
-    assert(pOutput != NULL);
+    assert(pOutput != nullptr);
 
     if (unic <= 0x0000007F)
     {
@@ -425,7 +430,7 @@ int enc_unicode_to_utf8_one(unsigned long unic,unsigned char *pOutput)
     return 0;
 }
 
-void gbk2utf8(uint8_t *gbk,uint8_t *utf8,size_t gbk_len){
+void gbk2utf8(const uint8_t *gbk,uint8_t *utf8,size_t gbk_len){
     uint16_t unic[gbk_len];
     size_t c=0;
     for (size_t i=0;i<gbk_len;i++,c++){
@@ -448,6 +453,40 @@ void gbk2utf8(uint8_t *gbk,uint8_t *utf8,size_t gbk_len){
             else if (r == 3) utf8[i] = ut8[0], utf8[++i] = ut8[1], utf8[++i] = ut8[2];
             else if (r == 4) utf8[i] = ut8[0], utf8[++i] = ut8[1], utf8[++i] = ut8[2], utf8[++i] = ut8[3];
         }
+    }
+}
+
+void gbk2utf8(const char *gbk1,char *utf8s,size_t gbk_len){
+    uint16_t unic[gbk_len];
+    uint8_t gbk[gbk_len];
+
+    size_t c=0;
+    for (size_t i=0;i<gbk_len;i++){
+        gbk[i]=(uint8_t)gbk1[i];
+    }
+    for (size_t i=0;i<gbk_len;i++,c++){
+        if (gbk[i] < 0x80){
+            unic[c] = gbk[i];
+        } else {
+            unic[c] = ff_oem2uni((uint16_t) (gbk[i] << 8 | gbk[i + 1]), 936);
+            i++;
+        }
+    }
+    c=0;
+    size_t i=0;
+    uint8_t utf8[gbk_len*2];
+    for (;i<gbk_len*2;i++,c++){
+        uint8_t ut8[4];
+        int r = enc_unicode_to_utf8_one(unic[c],ut8);
+        if (i+4<gbk_len*2) {
+            if (r == 1) utf8[i] = ut8[0];
+            else if (r == 2) utf8[i] = ut8[0], utf8[++i] = ut8[1];
+            else if (r == 3) utf8[i] = ut8[0], utf8[++i] = ut8[1], utf8[++i] = ut8[2];
+            else if (r == 4) utf8[i] = ut8[0], utf8[++i] = ut8[1], utf8[++i] = ut8[2], utf8[++i] = ut8[3];
+        }
+    }
+    for (size_t v=0;v<gbk_len*2;v++){
+        utf8s[v]=(char)utf8[v];
     }
 }
 

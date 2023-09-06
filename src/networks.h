@@ -27,11 +27,12 @@ struct lbj_data{
     char speed[6] = "<NUL>";
     char position[6] = "<NUL>";
     char time[6] = "<NUL>";
-    char info2_hex[51] = "<NUL>";
+    String info2_hex;
+//    char info2_hex[51] = "<NUL>";
     char lbj_class[3] = "NA"; // '0X' or ' X'
     char loco[9] = "<NUL>"; // such as 23500331
-    uint8_t route[17] = "********"; // 16 bytes GBK data.
-    uint8_t route_utf8[17*2] = "********";
+    char route[17] = "********"; // 16 bytes GBK data.
+    char route_utf8[17*2] = "********";
     char pos_lon_deg[4] = ""; // ---
     char pos_lon_min[8] = ""; // --.----
     char pos_lat_deg[3] = ""; // --
@@ -47,8 +48,8 @@ extern const char* ntpServer2;
 
 extern struct tm time_info;
 
-#define WIFI_SSID       "GL-MT1300-b99"
-#define WIFI_PASSWORD   "goodlife"
+#define WIFI_SSID       "MI CC9 Pro"
+#define WIFI_PASSWORD   "11223344"
 
 #define POCDAT_SIZE 16 // defines number of the pocsag data structures.
 
@@ -71,9 +72,10 @@ void setupTelnet();
 //extern bool ipChanged(uint16_t interval);
 
 int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l);
-void recodeBCD(char *c);
+void recodeBCD(const char *c, String *v);
 
 int enc_unicode_to_utf8_one(unsigned long unic,unsigned char *pOutput);
-void gbk2utf8(uint8_t *gbk,uint8_t *utf8,size_t gbk_len);
+void gbk2utf8(const uint8_t *gbk,uint8_t *utf8,size_t gbk_len);
+void gbk2utf8(const char *gbk1,char *utf8s,size_t gbk_len);
 
 #endif //PAGER_RECEIVE_NETWORKS_H
