@@ -30,9 +30,9 @@ private:
     bool haveNTP = false;
     bool is_newfile = false;
     bool is_startline = true;
-    const char * log_directory;
+    const char * log_directory{};
 
-    struct tm timein;
+    struct tm timein{};
 };
 
 

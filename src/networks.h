@@ -11,6 +11,7 @@
 #include "ESPTelnet.h"
 #include <RadioLib.h>
 #include "unicon.h"
+#include "sdlog.h"
 
 /* ------------------------------------------------ */
 #define LBJ_INFO_ADDR 1234000
@@ -40,6 +41,12 @@ struct lbj_data{
     char pos_lon[10] = "<NUL>"; // ---°--.----'
     char pos_lat[9] = "<NUL>"; // --°--.----'
 };
+
+struct rx_info{
+    float rssi = 0;
+    float fer = 0;
+    uint32_t cnt = 0;
+};
 /* ------------------------------------------------ */
 
 extern const char* time_zone;
@@ -56,6 +63,7 @@ extern struct tm time_info;
 extern ESPTelnet telnet;
 extern IPAddress ip;
 extern uint16_t  port;
+extern bool is_startline;
 
 bool isConnected();
 bool connectWiFi(const char* ssid, const char* password, int max_tries = 20, int pause = 500);
@@ -77,5 +85,9 @@ void recodeBCD(const char *c, String *v);
 int enc_unicode_to_utf8_one(unsigned long unic,unsigned char *pOutput);
 void gbk2utf8(const uint8_t *gbk,uint8_t *utf8,size_t gbk_len);
 void gbk2utf8(const char *gbk1,char *utf8s,size_t gbk_len);
+
+void printDataSerial(PagerClient::pocsag_data *p,const struct lbj_data& l,const struct rx_info& r);
+void appendDataLog(SD_LOG sd, PagerClient::pocsag_data *p, const struct lbj_data& l, const struct rx_info& r);
+void printDataTelnet(PagerClient::pocsag_data *p,const struct lbj_data& l,const struct rx_info& r);
 
 #endif //PAGER_RECEIVE_NETWORKS_H

@@ -46,7 +46,6 @@ void SD_LOG::getFilename(const char* path){
     }
     Serial.printf("[SDLOG] %d log files, using %s \n",counter,filename);
     sd_log = true;
-    return;
 }
 int SD_LOG::begin(const char* path){
     log_directory = path;
@@ -77,7 +76,6 @@ void SD_LOG::writeHeader(){
                timein.tm_year+1900,timein.tm_mon+1, timein.tm_mday,timein.tm_hour , timein.tm_min, timein.tm_sec);
     log.println("-------------------------------------------------");
     log.flush();
-    return;
 }
 
 void SD_LOG::append(const char* format, ...){
@@ -108,10 +106,9 @@ void SD_LOG::append(const char* format, ...){
         }
         is_startline = false;
     }
-    if (NULL != strchr(format,'\n')) /* detect end of line in stream */
+    if (nullptr != strchr(format,'\n')) /* detect end of line in stream */
         is_startline = true;
     log.print(buffer);
     log.flush();
-    return;
 }
 

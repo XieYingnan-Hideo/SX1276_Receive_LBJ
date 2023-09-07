@@ -291,11 +291,14 @@ int16_t PagerClient::readDataMSA(struct PagerClient::pocsag_data *p, size_t len)
 
             if (state == RADIOLIB_ERR_NONE && !p[i].is_empty){
                 if (length == 0) {
-                    length = 6;
-                    strncpy((char *) data, "<tone>", length + 1);
+                    p[i].is_empty = true;
+//                    length = 6;
+//                    strncpy((char *) data, "<tone>", length + 1);
                 }
                 data[length] = 0;
                 p[i].str = String((char *) data);
+                if (!p[i].str.length())
+                    p[i].is_empty = true;
                 p[i].len = length;
 //                length = 0;
 
