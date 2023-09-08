@@ -25,8 +25,8 @@ struct lbj_data{
     int8_t type = -1;
     char train[6] = "<NUL>";
     int8_t direction = -1;
-    char speed[6] = "<NUL>";
-    char position[6] = "<NUL>";
+    char speed[6] = "NUL";
+    char position[7] = " <NUL>";
     char time[6] = "<NUL>";
     String info2_hex;
 //    char info2_hex[51] = "<NUL>";
@@ -64,6 +64,7 @@ extern ESPTelnet telnet;
 extern IPAddress ip;
 extern uint16_t  port;
 extern bool is_startline;
+extern SD_LOG sd1;
 
 bool isConnected();
 bool connectWiFi(const char* ssid, const char* password, int max_tries = 20, int pause = 500);
@@ -85,6 +86,7 @@ void recodeBCD(const char *c, String *v);
 int enc_unicode_to_utf8_one(unsigned long unic,unsigned char *pOutput);
 void gbk2utf8(const uint8_t *gbk,uint8_t *utf8,size_t gbk_len);
 void gbk2utf8(const char *gbk1,char *utf8s,size_t gbk_len);
+void telPrintLog(int chars);
 
 void printDataSerial(PagerClient::pocsag_data *p,const struct lbj_data& l,const struct rx_info& r);
 void appendDataLog(SD_LOG sd, PagerClient::pocsag_data *p, const struct lbj_data& l, const struct rx_info& r);

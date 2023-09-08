@@ -2,6 +2,7 @@
 #include <SPI.h>
 #include <Wire.h>
 #include "utilities.h"
+#include <ESP32AnalogRead.h>
 
 #ifdef HAS_SDCARD
 #include <SD.h>
@@ -300,6 +301,9 @@ void disablePeripherals()
 #define disablePeripherals()
 #endif
 
+ESP32AnalogRead battery;
+float voltage;
+
 SPIClass SDSPI(HSPI);
 bool have_sd = false;
 
@@ -307,6 +311,15 @@ void initBoard()
 {
     Serial.begin(115200);
     Serial.println("initBoard");
+    pinMode(ADC_PIN,INPUT);
+    battery.attach(ADC_PIN);
+    voltage = battery.readVoltage()*2;
+    Serial.printf("Battery: %1.2f V\n",voltage);
+    if (voltage <= 2.8){
+        ESP.deepSleep(0);
+    }
+
+
     SPI.begin(RADIO_SCLK_PIN, RADIO_MISO_PIN, RADIO_MOSI_PIN);
 
 
@@ -360,14 +373,18 @@ void initBoard()
         u8g2->setFontDirection(0);
         u8g2->firstPage();
         do {
-            u8g2->setFont(u8g2_font_inb19_mr);
-            u8g2->drawStr(0, 30, "ESP32");
-            u8g2->drawHLine(2, 35, 47);
-            u8g2->drawHLine(3, 36, 47);
-            u8g2->drawVLine(45, 32, 12);
-            u8g2->drawVLine(46, 33, 12);
-            u8g2->setFont(u8g2_font_inb19_mf);
-            u8g2->drawStr(58, 60, "FSK");
+//            u8g2->setFont(u8g2_font_inb19_mr);
+//            u8g2->drawStr(0, 30, "ESP32");
+//            u8g2->drawHLine(2, 35, 47);
+//            u8g2->drawHLine(3, 36, 47);
+//            u8g2->drawVLine(45, 32, 12);
+//            u8g2->drawVLine(46, 33, 12);
+//            u8g2->setFont(u8g2_font_inb19_mf);
+//            u8g2->drawStr(58, 60, "FSK");
+            u8g2->setFont(u8g2_font_luRS19_tr);
+            u8g2->drawStr(13, 36, "POCSAG");
+            u8g2->setFont(u8g2_font_luIS12_tr);
+            u8g2->drawStr(38,52,"Receiver");
         } while ( u8g2->nextPage() );
         u8g2->sendBuffer();
         u8g2->setFont(u8g2_font_fur11_tf);

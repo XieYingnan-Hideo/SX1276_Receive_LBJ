@@ -45,7 +45,6 @@ uint64_t timer1 = 0;
 uint64_t timer2 = 0;
 uint32_t ip_last = 0;
 bool is_startline = true;
-
 SD_LOG sd1(SD);
 struct rx_info rxInfo;
 
@@ -117,8 +116,8 @@ void dualPrintln(const char* fmt){
 
 void LBJTEST(){
     PagerClient::pocsag_data pocdat[16];
-    pocdat[0].str = "37012  28  1503";pocdat[0].addr = 1234000;pocdat[0].func = 1;pocdat[0].is_empty = false;pocdat[0].len = 15;
-    pocdat[1].str = "XXXXX";pocdat[1].addr = 1234002;pocdat[1].func = 1;pocdat[1].is_empty = false;pocdat[1].len = 0;
+    pocdat[0].str = "37012";pocdat[0].addr = 1234000;pocdat[0].func = 1;pocdat[0].is_empty = false;pocdat[0].len = 15;
+    pocdat[1].str = "XXXXX";pocdat[1].addr = 1234002;pocdat[1].func = 1;pocdat[1].is_empty = true;pocdat[1].len = 0;
 //    Serial.println("[LBJ] 测试输出 机车编号 位置 XX°XX′XX″ ");
 //    dualPrintf(false,"[LBJ] 测试输出 机车编号 位置 XX°XX′XX″ \n");
     struct lbj_data lbj;
@@ -138,8 +137,10 @@ void setup() {\
     timer2 = millis();
     initBoard();
     delay(150);
+
     if(have_sd){
         sd1.begin("/LOGTEST");
+        sd1.append("电池电压 %1.2fV\n",battery.readVoltage()*2);
     }
     // Sync time.
 
@@ -216,7 +217,7 @@ void setup() {\
 //        Serial.println("WIFI Sleep enabled.");
 
     // test stuff
-//     LBJTEST();
+//
 //     Serial.printf("CPU FREQ %d MHz\n",ets_get_cpu_frequency());
 }
 
@@ -251,9 +252,10 @@ void loop() {
     telnet.loop();
 
     if (pager.gotSyncState()) {
-        rxInfo.rssi += radio.getRSSI(false,true);
-        rxInfo.cnt++;
-        // todo：implement packet RSSI indicator based on average RSSI value.
+        if (rxInfo.cnt < 5) {
+            rxInfo.rssi += radio.getRSSI(false, true);
+            rxInfo.cnt++;
+        }
         if (rxInfo.fer == 0)
             rxInfo.fer = radio.getFrequencyError();
     }
@@ -292,6 +294,7 @@ void loop() {
             printDataSerial(pocdat,lbj,rxInfo);
             appendDataLog(sd1,pocdat,lbj,rxInfo);
             printDataTelnet(pocdat,lbj,rxInfo);
+            // todo 还是把BER加LOG里吧，，然后你看下RSSI感觉还是有问题
             // Serial.printf("type %d \n",lbj.type);
 
 
@@ -324,7 +327,7 @@ void loop() {
 //            Serial.printf("failed.\n");
 //            Serial.println("[Pager] Reception failed, too many errors.");
             dualPrintf(true,"[Pager] Reception failed, too many errors. \n");
-            sd1.append("[Pager] Reception failed, too many errors. \n");
+//            sd1.append("[Pager] Reception failed, too many errors. \n");
         }
         else {
             // some error occurred

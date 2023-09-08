@@ -112,3 +112,36 @@ void SD_LOG::append(const char* format, ...){
     log.flush();
 }
 
+File SD_LOG::logFile(char op){
+    log.close();
+    switch (op) {
+        case 'r':
+        {
+            log = filesys->open(log_path,"r");
+            break;
+        }
+        case 'w':
+        {
+            log = filesys->open(log_path,"w");
+            break;
+        }
+        case 'a':
+        {
+            log = filesys->open(log_path,"a");
+            break;
+        }
+        default:
+            log = filesys->open(log_path,"a");
+    }
+    return log;
+}
+
+void SD_LOG::reopen(){
+    log.close();
+    log = filesys->open(log_path,"a");
+}
+
+bool SD_LOG::status() {
+    return sd_log;
+}
+

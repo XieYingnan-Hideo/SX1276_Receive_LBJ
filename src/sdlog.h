@@ -17,6 +17,9 @@ public:
     explicit SD_LOG(fs::FS &fs);
     int begin(const char* path);
     void append(const char* format, ...);
+    File logFile(char op);
+    void reopen();
+    bool status();
 
 private:
     void getFilename(const char* path);
