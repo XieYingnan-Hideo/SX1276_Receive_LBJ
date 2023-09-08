@@ -43,6 +43,7 @@ const int pin = RADIO_BUSY_PIN;
 PagerClient pager(&radio);
 uint64_t timer1 = 0;
 uint64_t timer2 = 0;
+uint64_t timer3 = 0;
 uint32_t ip_last = 0;
 bool is_startline = true;
 SD_LOG sd1(SD);
@@ -76,6 +77,141 @@ void pword(const char *msg, int xloc, int yloc) {
         xloc += u8g2->drawStr(xloc, yloc, glyph);
     }
 }
+void showInitComp(){
+    u8g2->clearBuffer();
+    u8g2->setFont(u8g2_font_squeezed_b7_tr);
+    // bottom (0,56,128,8)
+    String ipa = WiFi.localIP().toString();
+    u8g2->drawStr(0,64,ipa.c_str());
+    if(have_sd && WiFiClass::status() == WL_CONNECTED)
+        u8g2->drawStr(83,64,"D");
+    else if (have_sd)
+        u8g2->drawStr(83,64,"L");
+    else if (WiFiClass::status() == WL_CONNECTED)
+        u8g2->drawStr(83,64,"N");
+    char buffer[32];
+    sprintf(buffer,"%2d",ets_get_cpu_frequency()/10);
+    u8g2->drawStr(91,64,buffer);
+    sprintf(buffer,"%1.2f",battery.readVoltage()*2);
+    u8g2->drawStr(105,64,buffer);
+    // top (0,0,128,8)
+    if (!getLocalTime(&time_info,0))
+        u8g2->drawStr(0,7,"NO SNTP");
+    else
+    {
+        sprintf(buffer,"%d-%02d-%02d %02d:%02d",time_info.tm_year+1900,time_info.tm_mon+1, time_info.tm_mday,
+                time_info.tm_hour , time_info.tm_min);
+        u8g2->drawStr(0,7,buffer);
+    }
+    u8g2->sendBuffer();
+}
+void updateInfo(){
+    // update top
+    char buffer[32];
+    u8g2->setDrawColor(0);
+    u8g2->setFont(u8g2_font_squeezed_b7_tr);
+    u8g2->drawBox(0,0,128,8);
+    u8g2->setDrawColor(1);
+    if (!getLocalTime(&time_info,0))
+        u8g2->drawStr(0,7,"NO SNTP");
+    else
+    {
+        sprintf(buffer,"%d-%02d-%02d %02d:%02d",time_info.tm_year+1900,time_info.tm_mon+1, time_info.tm_mday,
+                time_info.tm_hour , time_info.tm_min);
+        u8g2->drawStr(0,7,buffer);
+    }
+    // update bottom
+    u8g2->setDrawColor(0);
+    u8g2->drawBox(0,56,128,8);
+    u8g2->setDrawColor(1);
+    String ipa = WiFi.localIP().toString();
+    u8g2->drawStr(0,64,ipa.c_str());
+    if(have_sd && WiFiClass::status() == WL_CONNECTED)
+        u8g2->drawStr(83,64,"D");
+    else if (have_sd)
+        u8g2->drawStr(83,64,"L");
+    else if (WiFiClass::status() == WL_CONNECTED)
+        u8g2->drawStr(83,64,"N");
+    sprintf(buffer,"%2d",ets_get_cpu_frequency()/10);
+    u8g2->drawStr(91,64,buffer);
+    sprintf(buffer,"%1.2f",battery.readVoltage()*2); // todo: Implement average voltage reading.
+    u8g2->drawStr(105,64,buffer);
+    u8g2->sendBuffer();
+}
+void showLBJ0(const struct lbj_data& l){
+    // box y 9->55
+    char buffer[128];
+    u8g2->setDrawColor(0);
+    u8g2->drawBox(0,9,128,46);
+    u8g2->setDrawColor(1);
+    u8g2->setFont(u8g2_font_wqy15_t_gb2312a);
+    if (l.direction == FUNCTION_UP){
+        sprintf(buffer,"车  次 %s 上行",l.train);
+    } else if (l.direction == FUNCTION_DOWN)
+        sprintf(buffer,"车  次 %s 下行",l.train);
+    else
+        sprintf(buffer,"车  次 %s %d",l.train,l.direction);
+    u8g2->drawUTF8(0,21,buffer);
+    sprintf(buffer,"速  度 %s  KM/H",l.speed);
+    u8g2->drawUTF8(0,37,buffer);
+    sprintf(buffer,"公里标 %s KM",l.position);
+    u8g2->drawUTF8(0,53,buffer);
+    // draw RSSI
+    u8g2->setDrawColor(0);
+    u8g2->drawBox(98,0,30,8);
+    u8g2->setDrawColor(1);
+    u8g2->setFont(u8g2_font_squeezed_b7_tr);
+    sprintf(buffer,"%3.1f",rxInfo.rssi);
+    u8g2->drawStr(99,7,buffer);
+    u8g2->sendBuffer();
+}
+void showLBJ1(const struct lbj_data& l){
+    char buffer[128];
+    u8g2->setDrawColor(0);
+    u8g2->drawBox(0,9,128,46);
+    u8g2->setDrawColor(1);
+    u8g2->setFont(u8g2_font_wqy12_t_gb2312);
+    sprintf(buffer,"车:%s%s  速:%sKM/H",l.lbj_class,l.train,l.speed);
+    u8g2->drawUTF8(0,19,buffer);
+    if (l.direction == FUNCTION_UP){
+        sprintf(buffer,"线:%s 上 %sK",l.route_utf8,l.position);
+    } else if (l.direction == FUNCTION_DOWN)
+        sprintf(buffer,"线:%s 下 %sK",l.route_utf8,l.position);
+    else
+        sprintf(buffer,"线:%s %d %sK",l.route_utf8,l.direction,l.position);
+    u8g2->drawUTF8(0,31,buffer);
+    sprintf(buffer,"号:%s",l.loco);
+    u8g2->drawUTF8(0,43,buffer);
+    sprintf(buffer,"%s°%s'%s°%s'",l.pos_lat_deg,l.pos_lat_min,l.pos_lon_deg,l.pos_lon_min);
+    u8g2->drawUTF8(0,54,buffer);
+    // draw RSSI
+    u8g2->setDrawColor(0);
+    u8g2->drawBox(98,0,30,8);
+    u8g2->setDrawColor(1);
+    u8g2->setFont(u8g2_font_squeezed_b7_tr);
+    sprintf(buffer,"%3.1f",rxInfo.rssi);
+    u8g2->drawStr(99,7,buffer);
+    u8g2->sendBuffer();
+}
+void showLBJ2(const struct lbj_data& l){
+    char buffer[128];
+    u8g2->setDrawColor(0);
+    u8g2->drawBox(0,9,128,46);
+    u8g2->setDrawColor(1);
+    u8g2->setFont(u8g2_font_wqy15_t_gb2312a);
+    sprintf(buffer,"当前时间 %s ",l.time);
+    u8g2->drawUTF8(0,21,buffer);
+    // draw RSSI
+    u8g2->setDrawColor(0);
+    u8g2->drawBox(98,0,30,8);
+    u8g2->setDrawColor(1);
+    u8g2->setFont(u8g2_font_squeezed_b7_tr);
+    sprintf(buffer,"%3.1f",rxInfo.rssi);
+    u8g2->drawStr(99,7,buffer);
+    u8g2->sendBuffer();
+}
+
+
 #endif
 
 void dualPrintf(bool time_stamp, const char* format, ...) { // Generated by ChatGPT.
@@ -147,9 +283,14 @@ void setup() {\
     sntp_set_time_sync_notification_cb( timeAvailable );
     sntp_servermode_dhcp(1);
     configTzTime(time_zone, ntpServer1, ntpServer2);
+    showInitComp();
+    u8g2->setFont(u8g2_font_helvB08_tr);
+    u8g2->setCursor(0,53);
+    u8g2->println("Initializing...");
+    u8g2->sendBuffer();
 
     delay(300);
-    setCpuFrequencyMhz(80);
+    setCpuFrequencyMhz(80); //todo: tone this down after start complete and no active for 60 sec. Btw is this really necessary?
     // initialize wireless network.
     Serial.printf("Connecting to %s ",WIFI_SSID);
     connectWiFi(WIFI_SSID,WIFI_PASSWORD,1); // usually max_tries = 25.
@@ -208,16 +349,22 @@ void setup() {\
         while (true);
     }
 
+
+//    if(WiFi.getSleep())
+//        Serial.println("WIFI Sleep enabled.");
+
     digitalWrite(BOARD_LED, LOW);
     Serial.printf("Booting time %llu ms\n",millis()-timer2);
     sd1.append("启动用时 %lu ms\n",millis()-timer2);
     timer2 = 0;
-    btStop();
-//    if(WiFi.getSleep())
-//        Serial.println("WIFI Sleep enabled.");
 
+    u8g2->setDrawColor(0);
+    u8g2->drawBox(0,44,128,12);
+    u8g2->setDrawColor(1);
+    u8g2->drawStr(0,53,"Waiting to receive data...");
+    u8g2->sendBuffer();
     // test stuff
-//
+//  LBJTEST()
 //     Serial.printf("CPU FREQ %d MHz\n",ets_get_cpu_frequency());
 }
 
@@ -230,6 +377,13 @@ void loop() {
         Serial.print("\n");
     }
     ip_last = WiFi.localIP();
+
+    if (timer3 == 0){
+        timer3 = millis();
+    } else if( millis() - timer3 > 500){
+        updateInfo();
+        timer3 = millis();
+    }
 
 //    if (millis()%10000 == 0){
 //        dualPrintf(true,"当前运行时间 %lu",micros());
@@ -303,7 +457,7 @@ void loop() {
 //            dualPrintf(true,"%.2f",rssi);
 //            dualPrintf(true," dBm  ");
 //            sd1.append("[SX1276] RSSI: %.2f dBm    Frequency Error: %.2f Hz \n",rssi,fer);
-            rxInfo.rssi = 0;
+//            rxInfo.rssi = 0;
 //
 //            // print Frequency Error
 //            dualPrintf(true,"Frequency Error:  ");
@@ -313,15 +467,26 @@ void loop() {
 
 #ifdef HAS_DISPLAY
             if (u8g2) {
-                u8g2->clearBuffer();
-                u8g2->drawStr(0, 12, "Received OK!");
-                // u8g2->drawStr(0, 26, str.c_str());
-                pword(str.c_str(), 0, 26);
-                u8g2->sendBuffer();
+//                u8g2->clearBuffer();
+//                u8g2->drawStr(0, 12, "Received OK!");
+//                // u8g2->drawStr(0, 26, str.c_str());
+//                pword(str.c_str(), 0, 26);
+//                u8g2->sendBuffer();
+                    if(lbj.type == 0)
+                        showLBJ0(lbj);
+                    else if (lbj.type == 1){
+                         showLBJ1(lbj);
+                    }
+                    else if (lbj.type == 2){
+                         showLBJ2(lbj);
+                    }
+
+
             }
 #endif
 //            if (millis()-timer1 >= 100)
 //                digitalWrite(BOARD_LED, LOW);
+            rxInfo.rssi = 0;
 
         } else if (state == RADIOLIB_ERR_MSG_CORRUPT) {
 //            Serial.printf("failed.\n");

@@ -382,13 +382,13 @@ void initBoard()
 //            u8g2->setFont(u8g2_font_inb19_mf);
 //            u8g2->drawStr(58, 60, "FSK");
             u8g2->setFont(u8g2_font_luRS19_tr);
-            u8g2->drawStr(13, 36, "POCSAG");
+            u8g2->drawStr(13, 32, "POCSAG");
             u8g2->setFont(u8g2_font_luIS12_tr);
-            u8g2->drawStr(38,52,"Receiver");
+            u8g2->drawStr(40,48,"Receiver");
         } while ( u8g2->nextPage() );
         u8g2->sendBuffer();
         u8g2->setFont(u8g2_font_fur11_tf);
-        delay(1000);
+//        delay(1000);
     }
 #endif
 
@@ -399,17 +399,17 @@ void initBoard()
     }
     pinMode(SDCARD_MISO, INPUT_PULLUP);
     SDSPI.begin(SDCARD_SCLK, SDCARD_MISO, SDCARD_MOSI, SDCARD_CS);
-    if (u8g2) {
-        u8g2->clearBuffer();
-    }
+//    if (u8g2) {
+//        u8g2->clearBuffer();
+//    }
 
     if (!SD.begin(SDCARD_CS, SDSPI)) {
 
         Serial.println("setupSDCard FAIL");
         if (u8g2) {
             do {
-                u8g2->setCursor(0, 16);
-                u8g2->println( "SDCard FAILED");;
+                u8g2->setCursor(0, 62);
+                u8g2->println( "SDCard FAILED");
             } while ( u8g2->nextPage() );
         }
 
@@ -418,10 +418,10 @@ void initBoard()
         uint32_t cardSize = SD.cardSize() / (1024 * 1024);
         if (u8g2) {
             do {
-                u8g2->setCursor(0, 16);
-                u8g2->print( "SDCard:");;
-                u8g2->print(cardSize / 1024.0);;
-                u8g2->println(" GB");;
+                u8g2->setCursor(0, 62);
+                u8g2->print( "SDCard:");
+                u8g2->print(cardSize / 1024.0);
+                u8g2->println(" GB");
             } while ( u8g2->nextPage() );
         }
 
@@ -432,15 +432,18 @@ void initBoard()
     if (u8g2) {
         u8g2->sendBuffer();
     }
-    delay(500);
+//    delay(500);
 #endif
 
 #ifdef HAS_DISPLAY
     if (u8g2) {
-        u8g2->clearBuffer();
+//        u8g2->clearBuffer();
         do {
-            u8g2->setCursor(0, 16);
-            u8g2->println( "Waiting to receive data");;
+//            u8g2->setDrawColor(0);
+//            u8g2->drawBox(0,53,128,12);
+//            u8g2->setDrawColor(1);
+//            u8g2->setCursor(0, 62);
+//            u8g2->println( "Intializing...");
         } while ( u8g2->nextPage() );
     }
 #endif
