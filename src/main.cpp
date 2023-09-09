@@ -28,6 +28,7 @@
 #include "esp_sntp.h"
 #include "networks.h"
 #include "sdlog.h"
+#include "customfont.h"
 
 // definitions
 
@@ -145,7 +146,7 @@ void showLBJ0(const struct lbj_data& l){
     u8g2->setDrawColor(0);
     u8g2->drawBox(0,8,128,48);
     u8g2->setDrawColor(1);
-    u8g2->setFont(u8g2_font_wqy15_t_gb2312a);
+    u8g2->setFont(u8g2_font_wqy15_t_custom);
     if (l.direction == FUNCTION_UP){
         sprintf(buffer,"车  次 %s 上行",l.train);
     } else if (l.direction == FUNCTION_DOWN)
@@ -230,7 +231,7 @@ void showLBJ2(const struct lbj_data& l){
     u8g2->setDrawColor(0);
     u8g2->drawBox(0,8,128,48);
     u8g2->setDrawColor(1);
-    u8g2->setFont(u8g2_font_wqy15_t_gb2312a);
+    u8g2->setFont(u8g2_font_wqy15_t_custom);
     sprintf(buffer,"当前时间 %s ",l.time);
     u8g2->drawUTF8(0,21,buffer);
     // draw RSSI
@@ -394,6 +395,7 @@ void setup() {\
     u8g2->setDrawColor(1);
     u8g2->drawStr(0,52,"Listening...");
     u8g2->sendBuffer();
+    Serial.printf("Mem left: %d Bytes\n",esp_get_free_heap_size());
     // test stuff
 //  LBJTEST()
 //     Serial.printf("CPU FREQ %d MHz\n",ets_get_cpu_frequency());
@@ -454,7 +456,8 @@ void loop() {
     telnet.loop();
 
     if (pager.gotSyncState()) {
-        if (rxInfo.cnt < 10 && (rxInfo.timer == 0 || micros() - rxInfo.timer > 11000 || micros() - rxInfo.timer < 0)) { // the micros will overflow,causing the program to stuck here.
+        if (rxInfo.cnt < 10 && (rxInfo.timer == 0 || micros() - rxInfo.timer > 11000 || micros() - rxInfo.timer < 0)) {
+            // It seems the micros will overflow,causing the program to stuck here. （真的吗...）
             rxInfo.timer = micros();
             rxInfo.rssi += radio.getRSSI(false, true);
             // Serial.printf("[D] RXI %.2f\n",rxInfo.rssi);

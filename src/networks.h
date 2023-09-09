@@ -32,7 +32,7 @@ struct lbj_data{
 //    char info2_hex[51] = "<NUL>";
     char lbj_class[3] = "NA"; // '0X' or ' X'
     char loco[9] = "<NUL>"; // such as 23500331
-    char route[17] = "********"; // 16 bytes GBK data.
+    char route[17] = "********"; // 16 bytes GBK data. //todo output this info to log in case characters out of GBK table.
     char route_utf8[17*2] = "********";
     char pos_lon_deg[4] = ""; // ---
     char pos_lon_min[8] = ""; // --.----
