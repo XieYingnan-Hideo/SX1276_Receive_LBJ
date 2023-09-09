@@ -7,7 +7,7 @@
 
 #include <WiFi.h>
 #include <ctime>
-#include "sntp.h"
+#include "esp_sntp.h"
 #include "ESPTelnet.h"
 #include <RadioLib.h>
 #include "unicon.h"
@@ -46,6 +46,7 @@ struct rx_info{
     float rssi = 0;
     float fer = 0;
     uint32_t cnt = 0;
+    uint64_t timer = 0;
 };
 /* ------------------------------------------------ */
 

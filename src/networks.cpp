@@ -267,7 +267,8 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l){
                         buffer = p[i].str.substring(20);
                     else
                         break;
-                }
+                } else
+                    buffer = p[i].str;
                 if (l->direction == -1)
                     l->direction = (int8_t)p[i].func;
                 /*
@@ -291,49 +292,43 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l){
                  */
 
                 // reformat to hexadecimal string.
-                if (p[i].addr == LBJ_INFO2_ADDR) {
-                    for (char &c: p[i].str) {
-                        recodeBCD(&c, &l->info2_hex);
-                    }
-                } else {
-                    for (char &c: buffer) {
-                        recodeBCD(&c, &l->info2_hex);
-                    }
+                for (char &c: buffer) {
+                    recodeBCD(&c, &l->info2_hex);
                 }
-
+                
                 // locomotive registry number.
-                if (l->info2_hex.length() >= 12 && l->info2_hex[4] != 'X' && l->info2_hex[5] != 'X' && l->info2_hex[10] != 'X') {
+                if (buffer.length() >= 12 && buffer[4] != 'X' && buffer[5] != 'X' && buffer[10] != 'X') {
                     for (size_t c = 4, v = 0; c < 12; c++, v++) {
-                        l->loco[v] = l->info2_hex[c];
+                        l->loco[v] = buffer[c];
                     }
                 }
 
                 // positions lon
-                if (l->info2_hex.length() >= 39 && l->info2_hex[30] != 'X' && l->info2_hex[35] != 'X'){
+                if (buffer.length() >= 39 && buffer[30] != 'X' && buffer[35] != 'X'){
                     for (size_t c = 30,v = 0;c<39;c++,v++){
-                        l->pos_lon[v] = l->info2_hex[c];
+                        l->pos_lon[v] = buffer[c];
                     }
                     for (size_t c = 30,v = 0;c<33;c++,v++){
-                        l->pos_lon_deg[v] = l->info2_hex[c];
+                        l->pos_lon_deg[v] = buffer[c];
                     }
                     size_t v = 0;
                     for (size_t c = 33;c<39;c++,v++){
-                        l->pos_lon_min[v] = l->info2_hex[c];
+                        l->pos_lon_min[v] = buffer[c];
                         if (c == 34)
                             l->pos_lon_min[++v] = '.';
                     }
                 }
                 // position lat
-                if (l->info2_hex.length() >= 47 && l->info2_hex[39] != 'X' && l->info2_hex[40] != 'X' && l->info2_hex[45] != 'X'){
+                if (buffer.length() >= 47 && buffer[39] != 'X' && buffer[40] != 'X' && buffer[45] != 'X'){
                     for (size_t c = 39,v = 0;c<47;c++,v++){
-                        l->pos_lat[v] = l->info2_hex[c];
+                        l->pos_lat[v] = buffer[c];
                     }
                     for (size_t c = 39,v = 0;c<41;c++,v++){
-                        l->pos_lat_deg[v] = l->info2_hex[c];
+                        l->pos_lat_deg[v] = buffer[c];
                     }
                     size_t v = 0;
                     for (size_t c = 41;c<47;c++,v++){
-                        l->pos_lat_min[v] = l->info2_hex[c];
+                        l->pos_lat_min[v] = buffer[c];
                         if (c == 42)
                             l->pos_lat_min[++v] = '.';
                     }
@@ -775,7 +770,7 @@ void printDataTelnet(PagerClient::pocsag_data *p,const struct lbj_data& l,const 
             else
                 telPrintf(true,"[LBJ] 方向: %4d     ",l.direction);
             telPrintf(true,"车次: %s%s   速度: %s KM/H  公里标: %s KM \n",l.lbj_class,l.train,l.speed,l.position);
-            telPrintf(true,"[LBJ] 线路: %s 车号: %s  ",l.route,l.loco);
+            telPrintf(true,"[LBJ] 线路: %s 车号: %s  ",l.route_utf8,l.loco);
             if (l.pos_lat_deg[1] && l.pos_lat_min[1])
                 telPrintf(true,"位置: %s°%2s′ ", l.pos_lat_deg, l.pos_lat_min);
             else

@@ -3,6 +3,7 @@
 #include <Wire.h>
 #include "utilities.h"
 #include <ESP32AnalogRead.h>
+#include "patterns.h"
 
 #ifdef HAS_SDCARD
 #include <SD.h>
@@ -395,7 +396,7 @@ void initBoard()
 
 #ifdef HAS_SDCARD
     if (u8g2) {
-        u8g2->setFont(u8g2_font_helvB08_tr);
+        u8g2->setFont(u8g2_font_wqy12_t_gb2312);
     }
     pinMode(SDCARD_MISO, INPUT_PULLUP);
     SDSPI.begin(SDCARD_SCLK, SDCARD_MISO, SDCARD_MOSI, SDCARD_CS);
@@ -432,19 +433,23 @@ void initBoard()
     if (u8g2) {
         u8g2->sendBuffer();
     }
-//    delay(500);
+//    delay(1500);
 #endif
 
 #ifdef HAS_DISPLAY
     if (u8g2) {
 //        u8g2->clearBuffer();
         do {
+                // u8g2->clearBuffer();
+                // u8g2->drawXBM(0,0,16,16,bitmap_test);
+                // u8g2->sendBuffer();
 //            u8g2->setDrawColor(0);
 //            u8g2->drawBox(0,53,128,12);
 //            u8g2->setDrawColor(1);
 //            u8g2->setCursor(0, 62);
 //            u8g2->println( "Intializing...");
         } while ( u8g2->nextPage() );
+        // delay(5000);
     }
 #endif
 
