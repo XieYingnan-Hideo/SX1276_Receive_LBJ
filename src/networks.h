@@ -12,7 +12,6 @@
 #include <RadioLib.h>
 #include "unicon.h"
 #include "sdlog.h"
-#include "loco.h"
 
 /* ------------------------------------------------ */
 #define LBJ_INFO_ADDR 1234000
@@ -30,7 +29,6 @@ struct lbj_data{
     char position[7] = " <NUL>";
     char time[6] = "<NUL>";
     String info2_hex;
-    String loco_type;
 //    char info2_hex[51] = "<NUL>";
     char lbj_class[3] = "NA"; // '0X' or ' X'
     char loco[9] = "<NUL>"; // such as 23500331
@@ -68,13 +66,9 @@ extern IPAddress ip;
 extern uint16_t  port;
 extern bool is_startline;
 extern SD_LOG sd1;
-extern bool give_tel_rssi;
-extern bool give_tel_gain;
 
 bool isConnected();
 bool connectWiFi(const char* ssid, const char* password, int max_tries = 20, int pause = 500);
-void silentConnect(const char* ssid, const char* password);
-void changeCpuFreq(uint32_t freq_mhz);
 void timeAvailable(struct timeval *t);
 
 void onTelnetConnect(String ip);

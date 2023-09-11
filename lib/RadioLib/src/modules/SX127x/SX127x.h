@@ -925,11 +925,6 @@ class SX127x: public PhysicalLayer {
     int16_t setAFCAGCTrigger(uint8_t trigger);
 
     /*!
-     * \brief Manually Triggers AGC sequence.
-     */
-    void startAGC();
-
-    /*!
       \brief Sets FSK sync word. Allowed sync words are up to 8 bytes long and can not contain null bytes. Only available in FSK mode.
       \param syncWord Sync word array.
       \param len Sync word length (in bytes).
@@ -997,13 +992,6 @@ class SX127x: public PhysicalLayer {
       \returns \ref status_codes
     */
     int16_t enableBitSync();
-
-    /*!
-     * \brief Checks the state of Bit synchronizer.
-     * \return state or \ref status_codes
-     */
-
-    int16_t bitsyncState();
 
     /*!
       \brief Disable Bit synchronizer (not allowed in Packet mode).

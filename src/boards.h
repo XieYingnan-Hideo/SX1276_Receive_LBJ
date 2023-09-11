@@ -297,6 +297,65 @@ bool initPMU()
 void disablePeripherals()
 {
 }
+#else
+#define initPMU()
+#define disablePeripherals()
+#endif
+
+ESP32AnalogRead battery;
+float voltage;
+
+SPIClass SDSPI(HSPI);
+bool have_sd = false;
+
+void initBoard()
+{
+    Serial.begin(115200);
+    Serial.println("initBoard");
+    pinMode(ADC_PIN,INPUT);
+    battery.attach(ADC_PIN);
+    voltage = battery.readVoltage()*2;
+    Serial.printf("Battery: %1.2f V\n",voltage);
+    if (voltage <= 2.8){
+        ESP.deepSleep(0);
+    }
+
+
+    SPI.begin(RADIO_SCLK_PIN, RADIO_MISO_PIN, RADIO_MOSI_PIN);
+
+
+    Wire.begin(I2C_SDA, I2C_SCL);
+
+
+#ifdef I2C1_SDA
+    Wire1.begin(I2C1_SDA, I2C1_SCL);
+#endif
+
+
+
+
+#ifdef HAS_GPS
+    Serial1.begin(GPS_BAUD_RATE, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+#endif
+
+#if OLED_RST
+    pinMode(OLED_RST, OUTPUT);
+    digitalWrite(OLED_RST, HIGH); delay(20);
+    digitalWrite(OLED_RST, LOW);  delay(20);
+    digitalWrite(OLED_RST, HIGH); delay(20);
+#endif
+
+    initPMU();
+
+
+#ifdef BOARD_LED
+    /*
+    * T-BeamV1.0, V1.1 LED defaults to low level as trun on,
+    * so it needs to be forced to pull up
+    * * * * */
+#if LED_ON == LOW
+    gpio_hold_dis(GPIO_NUM_4);
+#endif
     pinMode(BOARD_LED, OUTPUT);
     digitalWrite(BOARD_LED, LED_ON);
 #endif
