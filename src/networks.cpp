@@ -35,6 +35,26 @@ bool connectWiFi(const char* ssid, const char* password, int max_tries, int paus
     return isConnected();
 }
 
+void silentConnect(const char* ssid, const char* password){
+    WiFiClass::mode(WIFI_STA);
+    WiFi.setAutoReconnect(true);
+    WiFi.persistent(true);
+    WiFi.begin(ssid, password);
+}
+
+void changeCpuFreq(uint32_t freq_mhz){ //todo 这个如果一直没Wifi的话，变频会导致又开始扫描WIFI，找到这个扫描超时开关，加进来。
+    if (isConnected())
+        setCpuFrequencyMhz(freq_mhz);
+    else {
+        WiFiClass::mode(WIFI_OFF);
+        setCpuFrequencyMhz(freq_mhz);
+        WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+        WiFiClass::mode(WIFI_STA);
+        WiFi.setAutoReconnect(true);
+        WiFi.persistent(true);
+    }
+}
+
 /* ------------------------------------------------ */
 
 void timeAvailable(struct timeval *t){
@@ -93,6 +113,7 @@ void onTelnetConnectionAttempt(String ip) {
 }
 
 void onTelnetInput(String str) {
+    bool ext_call = false;
     size_t args_count = 3;
     char strc[256];
     str.toCharArray(strc,256);
@@ -159,8 +180,18 @@ void onTelnetInput(String str) {
             telPrintLog(1000);
         else
             telnet.println("> Can not access SD card.");
+    } else if (str == "bat")
+        telnet.printf("Current Battery Voltage %1.2fV\n",battery.readVoltage()*2);
+    else if (str == "rssi"){
+        give_tel_rssi = true;
+        ext_call = true;
     }
-    telnet.print("< ");
+    else if (str == "gain") {
+        give_tel_gain = true;
+        ext_call = true;
+    }
+    if (!ext_call)
+        telnet.print("< ");
 }
 
 
@@ -301,6 +332,14 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l){
                     for (size_t c = 4, v = 0; c < 12; c++, v++) {
                         l->loco[v] = buffer[c];
                     }
+                    String type;
+                    for (size_t c=0;c<3;c++)
+                    {
+                        if(isdigit(l->loco[c]))
+                            type += l->loco[c];
+                    }
+                    if (type.length()==3)
+                        l->loco_type = locos[std::stoi(type.c_str())];
                 }
 
                 // positions lon

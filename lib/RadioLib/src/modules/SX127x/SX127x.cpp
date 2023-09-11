@@ -1017,6 +1017,10 @@ int16_t SX127x::setAFCAGCTrigger(uint8_t trigger) {
     return (this->mod->SPIsetRegValue(RADIOLIB_SX127X_REG_RX_CONFIG, trigger, 2, 0));
 }
 
+void SX127x::startAGC(){
+    this->mod->SPIsetRegValue(RADIOLIB_SX127X_REG_AFC_FEI,RADIOLIB_SX127X_AGC_START,4,4);
+}
+
 int16_t SX127x::setSyncWord(uint8_t *syncWord, size_t len) {
     // check active modem
     if (getActiveModem() != RADIOLIB_SX127X_FSK_OOK) {
@@ -1125,6 +1129,10 @@ int16_t SX127x::setOokPeakThresholdStep(uint8_t value) {
 
 int16_t SX127x::enableBitSync() {
     return (this->mod->SPIsetRegValue(RADIOLIB_SX127X_REG_OOK_PEAK, RADIOLIB_SX127X_BIT_SYNC_ON, 5, 5, 5));
+}
+
+int16_t SX127x::bitsyncState(){
+    return (this->mod->SPIgetRegValue(RADIOLIB_SX127X_REG_OOK_PEAK,5,5));
 }
 
 int16_t SX127x::disableBitSync() {

@@ -17,6 +17,7 @@ public:
     explicit SD_LOG(fs::FS &fs);
     int begin(const char* path);
     void append(const char* format, ...);
+    // todo add csv file.
     File logFile(char op);
     void reopen();
     bool status();
