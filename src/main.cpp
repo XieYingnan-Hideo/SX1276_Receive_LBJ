@@ -28,6 +28,7 @@
 #include "esp_sntp.h"
 #include "networks.h"
 #include "sdlog.h"
+#include "customfont.h"
 
 // definitions
 
@@ -47,6 +48,10 @@ uint64_t timer3 = 0;
 uint32_t ip_last = 0;
 bool is_startline = true;
 bool exec_init_f80 = false;
+bool agc_triggered = false;
+bool low_volt_warned = false;
+bool give_tel_rssi = false;
+bool give_tel_gain = false;
 SD_LOG sd1(SD);
 struct rx_info rxInfo;
 
@@ -135,7 +140,14 @@ void updateInfo(){
         u8g2->drawStr(83,64,"N");
     sprintf(buffer,"%2d",ets_get_cpu_frequency()/10);
     u8g2->drawStr(91,64,buffer);
-    sprintf(buffer,"%1.2f",battery.readVoltage()*2); // todo: Implement average voltage reading.
+    voltage = battery.readVoltage()*2;
+    sprintf(buffer,"%1.2f",voltage); // todo: Implement average voltage reading.
+    if (voltage < 2.9 && !low_volt_warned)
+    {
+        Serial.printf("Warning! Low Voltage detected, %1.2fV\n",voltage);
+        sd1.append("低压警告，电池电压%1.2fV\n",voltage);
+        low_volt_warned = true;
+    }
     u8g2->drawStr(105,64,buffer);
     u8g2->sendBuffer();
 }
@@ -145,7 +157,7 @@ void showLBJ0(const struct lbj_data& l){
     u8g2->setDrawColor(0);
     u8g2->drawBox(0,8,128,48);
     u8g2->setDrawColor(1);
-    u8g2->setFont(u8g2_font_wqy15_t_gb2312a);
+    u8g2->setFont(u8g2_font_wqy15_t_custom);
     if (l.direction == FUNCTION_UP){
         sprintf(buffer,"车  次 %s 上行",l.train);
     } else if (l.direction == FUNCTION_DOWN)
@@ -196,6 +208,8 @@ void showLBJ1(const struct lbj_data& l){
     // line 3
     sprintf(buffer,"号:%s",l.loco);
     u8g2->drawUTF8(0,43,buffer);
+    if (l.loco_type.length())
+        u8g2->drawUTF8(72,43,l.loco_type.c_str());
     // line 4
     String pos;
     if (l.pos_lat_deg[1]&&l.pos_lat_min[1])
@@ -230,7 +244,7 @@ void showLBJ2(const struct lbj_data& l){
     u8g2->setDrawColor(0);
     u8g2->drawBox(0,8,128,48);
     u8g2->setDrawColor(1);
-    u8g2->setFont(u8g2_font_wqy15_t_gb2312a);
+    u8g2->setFont(u8g2_font_wqy15_t_custom);
     sprintf(buffer,"当前时间 %s ",l.time);
     u8g2->drawUTF8(0,21,buffer);
     // draw RSSI
@@ -380,6 +394,14 @@ void setup() {\
         while (true);
     }
 
+//    state = radio.bitsyncState();
+//    if (state == 32)
+//        Serial.println("[SX1276] Bit Synchronizer Activated");
+//    else if (!state)
+//        Serial.println("[SX1276] Bit Synchronizer Disabled");
+//    else
+//        Serial.printf("[SX1276] get bSyncState failed, code %d\n",state);
+
 
 //    if(WiFi.getSleep())
 //        Serial.println("WIFI Sleep enabled.");
@@ -394,6 +416,7 @@ void setup() {\
     u8g2->setDrawColor(1);
     u8g2->drawStr(0,52,"Listening...");
     u8g2->sendBuffer();
+    Serial.printf("Mem left: %d Bytes\n",esp_get_free_heap_size());
     // test stuff
 //  LBJTEST()
 //     Serial.printf("CPU FREQ %d MHz\n",ets_get_cpu_frequency());
@@ -410,11 +433,22 @@ void loop() {
     }
     ip_last = WiFi.localIP();
 
+    if (give_tel_rssi){
+        telnet.printf("> RSSI %3.2f dBm.\n",radio.getRSSI(false,true));
+        give_tel_rssi = false;
+        telnet.print("< ");
+    }
+    if (give_tel_gain){
+        telnet.printf("> Gain Pos %d \n",radio.getGain());
+        give_tel_gain = false;
+        telnet.print("< ");
+    }
+
     if (millis() > 60000 && timer1 == 0 && !exec_init_f80) // lower down frequency 60 sec after startup and idle.
     {
         if (isConnected())
             setCpuFrequencyMhz(80);
-        else {
+        else {  // FIXME 这个还是不行，跳转到240MHz时如果连接丢失在240MHz时无法重新连接。
             WiFiClass::mode(WIFI_OFF);
             setCpuFrequencyMhz(80);
             WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -442,7 +476,8 @@ void loop() {
         digitalWrite(BOARD_LED, LOW);
 
     if (millis()-timer1 >= 60000 && timer1!=0)
-        setCpuFrequencyMhz(80);
+//        setCpuFrequencyMhz(80);
+        changeCpuFreq(80);
 
     if (isConnected() && !telnet.online){
         ip = WiFi.localIP();
@@ -454,7 +489,13 @@ void loop() {
     telnet.loop();
 
     if (pager.gotSyncState()) {
-        if (rxInfo.cnt < 10 && (rxInfo.timer == 0 || micros() - rxInfo.timer > 11000 || micros() - rxInfo.timer < 0)) { // the micros will overflow,causing the program to stuck here.
+        if (radio.getRSSI() >= -60.0 && !agc_triggered){ // todo: validate this function.
+            radio.startAGC();
+            Serial.printf("[SX1276] AGC Triggered. Current Gain Pos %d\n",radio.getGain());
+            agc_triggered = true;
+        }
+        if (rxInfo.cnt < 10 && (rxInfo.timer == 0 || micros() - rxInfo.timer > 11000 || micros() - rxInfo.timer < 0)) {
+            // It seems the micros will overflow,causing the program to stuck here. （真的吗...）
             rxInfo.timer = micros();
             rxInfo.rssi += radio.getRSSI(false, true);
             // Serial.printf("[D] RXI %.2f\n",rxInfo.rssi);
@@ -470,7 +511,8 @@ void loop() {
         rxInfo.rssi = rxInfo.rssi/(float)rxInfo.cnt;
         rxInfo.cnt = 0; rxInfo.timer = 0;
         timer2 = millis();
-        setCpuFrequencyMhz(240);
+        changeCpuFreq(240);
+//        setCpuFrequencyMhz(240);
 //        Serial.printf("CPU FREQ TO %d MHz\n",ets_get_cpu_frequency());
 
         PagerClient::pocsag_data pocdat[POCDAT_SIZE];
@@ -500,7 +542,6 @@ void loop() {
             printDataTelnet(pocdat,lbj,rxInfo);
             // todo 还是把BER加LOG里吧，，然后你看下RSSI感觉还是有问题
             // Serial.printf("type %d \n",lbj.type);
-
 
 //            // print rssi
 //            dualPrintf(true,"[SX1276] RSSI:  ");
@@ -551,5 +592,9 @@ void loop() {
         Serial.printf("[Pager] Processing time %llu ms.\n",millis()-timer2);
         timer2 = 0;
         rxInfo.rssi = 0; rxInfo.fer = 0;
+        if (agc_triggered) { // todo Validate this function.
+            radio.setGain(1);
+            agc_triggered = false;
+        }
     }
 }
