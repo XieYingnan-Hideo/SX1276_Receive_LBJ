@@ -374,7 +374,7 @@ void setup() {\
     Serial.print(F("[Pager] Initializing ... "));
     // base (center) frequency:     821.2375 MHz + 0.005 FE
     // speed:                       1200 bps
-    state = pager.begin(821.2375 + 0.0046, 1200, false, 2500);
+    state = pager.begin(821.2375 + 0.0050, 1200, false, 2500);
     if (state == RADIOLIB_ERR_NONE) {
         Serial.println(F("success!"));
     } else {
@@ -491,16 +491,22 @@ void loop() {
 
     if (pager.gotSyncState()) {
         // FIXME: Due to unknown reasons, adding AGCStart function to SX127X.cpp cause the radio go deaf.
-//        if (radio.getRSSI() >= -60.0 && !agc_triggered){ // todo: validate this function.
-//            Serial.println("[SX1276][D] AGC TRIGGERED.")
-//            radio.startAGC();
-//            Serial.printf("[SX1276] AGC Triggered. Current Gain Pos %d\n",radio.getGain());
-//            agc_triggered = true;
-//        }
+    //    if (radio.getRSSI() >= -60.0 && !agc_triggered){ // todo: validate this function.
+    //        Serial.println("[SX1276][D] AGC TRIGGERED.");
+    //        radio.startAGC();
+    //        Serial.printf("[SX1276] AGC Triggered. Current Gain Pos %d\n",radio.getGain());
+    //        agc_triggered = true;
+    //    }
         if (rxInfo.cnt < 10 && (rxInfo.timer == 0 || micros() - rxInfo.timer > 11000 || micros() - rxInfo.timer < 0)) {
             // It seems the micros will overflow,causing the program to stuck here. （真的吗...）
+            float rssi = radio.getRSSI(false,true);
+            // if (rssi >= -80.0 && !agc_triggered){
+            //     radio.startAGC();
+            //     Serial.printf("[SX1276] AGC Triggered. Current Gain Pos %d\n",radio.getGain());
+            //     agc_triggered = true;
+            // }
             rxInfo.timer = micros();
-            rxInfo.rssi += radio.getRSSI(false, true);
+            rxInfo.rssi += rssi;
             // Serial.printf("[D] RXI %.2f\n",rxInfo.rssi);
             rxInfo.cnt++;
         }
@@ -595,10 +601,10 @@ void loop() {
         Serial.printf("[Pager] Processing time %llu ms.\n",millis()-timer2);
         timer2 = 0;
         rxInfo.rssi = 0; rxInfo.fer = 0;
-//        if (agc_triggered) { // todo Validate this function.
-//            radio.setGain(1);
-//            agc_triggered = false;
-//        }
+    //    if (agc_triggered) { // todo Validate this function.
+    //        radio.setGain(1);
+    //        agc_triggered = false;
+    //    }
         changeCpuFreq(240);
     }
 }
