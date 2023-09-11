@@ -12,7 +12,6 @@
 #include <RadioLib.h>
 #include "unicon.h"
 #include "sdlog.h"
-#include "boards.h"
 #include "loco.h"
 
 /* ------------------------------------------------ */

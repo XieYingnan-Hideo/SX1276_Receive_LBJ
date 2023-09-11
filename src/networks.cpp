@@ -186,10 +186,6 @@ void onTelnetInput(String str) {
         give_tel_rssi = true;
         ext_call = true;
     }
-    else if (str == "gain") {
-        give_tel_gain = true;
-        ext_call = true;
-    }
     if (!ext_call)
         telnet.print("< ");
 }
