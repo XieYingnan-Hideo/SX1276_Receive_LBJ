@@ -45,9 +45,14 @@ PagerClient pager(&radio);
 uint64_t timer1 = 0;
 uint64_t timer2 = 0;
 uint64_t timer3 = 0;
+uint64_t timer4 = 0;
 uint32_t ip_last = 0;
 bool is_startline = true;
 bool exec_init_f80 = false;
+bool agc_triggered = false;
+bool low_volt_warned = false;
+bool give_tel_rssi = false;
+bool give_tel_gain = false;
 SD_LOG sd1(SD);
 struct rx_info rxInfo;
 
@@ -136,7 +141,14 @@ void updateInfo(){
         u8g2->drawStr(83,64,"N");
     sprintf(buffer,"%2d",ets_get_cpu_frequency()/10);
     u8g2->drawStr(91,64,buffer);
-    sprintf(buffer,"%1.2f",battery.readVoltage()*2); // todo: Implement average voltage reading.
+    voltage = battery.readVoltage()*2;
+    sprintf(buffer,"%1.2f",voltage); // todo: Implement average voltage reading.
+    if (voltage < 2.9 && !low_volt_warned)
+    {
+        Serial.printf("Warning! Low Voltage detected, %1.2fV\n",voltage);
+        sd1.append("低压警告，电池电压%1.2fV\n",voltage);
+        low_volt_warned = true;
+    }
     u8g2->drawStr(105,64,buffer);
     u8g2->sendBuffer();
 }
@@ -197,6 +209,8 @@ void showLBJ1(const struct lbj_data& l){
     // line 3
     sprintf(buffer,"号:%s",l.loco);
     u8g2->drawUTF8(0,43,buffer);
+    if (l.loco_type.length())
+        u8g2->drawUTF8(72,43,l.loco_type.c_str());
     // line 4
     String pos;
     if (l.pos_lat_deg[1]&&l.pos_lat_min[1])
@@ -381,6 +395,14 @@ void setup() {\
         while (true);
     }
 
+//    state = radio.bitsyncState();
+//    if (state == 32)
+//        Serial.println("[SX1276] Bit Synchronizer Activated");
+//    else if (!state)
+//        Serial.println("[SX1276] Bit Synchronizer Disabled");
+//    else
+//        Serial.printf("[SX1276] get bSyncState failed, code %d\n",state);
+
 
 //    if(WiFi.getSleep())
 //        Serial.println("WIFI Sleep enabled.");
@@ -412,11 +434,22 @@ void loop() {
     }
     ip_last = WiFi.localIP();
 
+    if (give_tel_rssi){
+        telnet.printf("> RSSI %3.2f dBm.\n",radio.getRSSI(false,true));
+        give_tel_rssi = false;
+        telnet.print("< ");
+    }
+    if (give_tel_gain){
+        telnet.printf("> Gain Pos %d \n",radio.getGain());
+        give_tel_gain = false;
+        telnet.print("< ");
+    }
+
     if (millis() > 60000 && timer1 == 0 && !exec_init_f80) // lower down frequency 60 sec after startup and idle.
     {
         if (isConnected())
             setCpuFrequencyMhz(80);
-        else {
+        else {  // FIXME 这个还是不行，跳转到240MHz时如果连接丢失在240MHz时无法重新连接。
             WiFiClass::mode(WIFI_OFF);
             setCpuFrequencyMhz(80);
             WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -443,8 +476,9 @@ void loop() {
     if (millis()-timer1 >= 100)
         digitalWrite(BOARD_LED, LOW);
 
-    if (millis()-timer1 >= 60000 && timer1!=0)
-        setCpuFrequencyMhz(80);
+    if (millis()-timer4 >= 60000 && timer4!=0 && ets_get_cpu_frequency() != 80)
+//        setCpuFrequencyMhz(80);
+        changeCpuFreq(80);
 
     if (isConnected() && !telnet.online){
         ip = WiFi.localIP();
@@ -456,6 +490,13 @@ void loop() {
     telnet.loop();
 
     if (pager.gotSyncState()) {
+        // FIXME: Due to unknown reasons, adding AGCStart function to SX127X.cpp cause the radio go deaf.
+//        if (radio.getRSSI() >= -60.0 && !agc_triggered){ // todo: validate this function.
+//            Serial.println("[SX1276][D] AGC TRIGGERED.")
+//            radio.startAGC();
+//            Serial.printf("[SX1276] AGC Triggered. Current Gain Pos %d\n",radio.getGain());
+//            agc_triggered = true;
+//        }
         if (rxInfo.cnt < 10 && (rxInfo.timer == 0 || micros() - rxInfo.timer > 11000 || micros() - rxInfo.timer < 0)) {
             // It seems the micros will overflow,causing the program to stuck here. （真的吗...）
             rxInfo.timer = micros();
@@ -469,10 +510,11 @@ void loop() {
 
     // the number of batches to wait for
     // 2 batches will usually be enough to fit short and medium messages
-    if (pager.available() >= 2) {
+    if (pager.available() >= 2) { // todo add session timeout exception to prevent stuck here.
+        Serial.println("[PHY-LAYER][D] AVAILABLE > 2.");
         rxInfo.rssi = rxInfo.rssi/(float)rxInfo.cnt;
         rxInfo.cnt = 0; rxInfo.timer = 0;
-        timer2 = millis();
+        timer2 = millis(); timer4=millis();
         setCpuFrequencyMhz(240);
 //        Serial.printf("CPU FREQ TO %d MHz\n",ets_get_cpu_frequency());
 
@@ -503,7 +545,6 @@ void loop() {
             printDataTelnet(pocdat,lbj,rxInfo);
             // todo 还是把BER加LOG里吧，，然后你看下RSSI感觉还是有问题
             // Serial.printf("type %d \n",lbj.type);
-
 
 //            // print rssi
 //            dualPrintf(true,"[SX1276] RSSI:  ");
@@ -554,5 +595,10 @@ void loop() {
         Serial.printf("[Pager] Processing time %llu ms.\n",millis()-timer2);
         timer2 = 0;
         rxInfo.rssi = 0; rxInfo.fer = 0;
+//        if (agc_triggered) { // todo Validate this function.
+//            radio.setGain(1);
+//            agc_triggered = false;
+//        }
+        changeCpuFreq(240);
     }
 }
