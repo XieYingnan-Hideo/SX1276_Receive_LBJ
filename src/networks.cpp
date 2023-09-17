@@ -53,8 +53,8 @@ void changeCpuFreq(uint32_t freq_mhz){ //todo 这个如果一直没Wifi的话，
             setCpuFrequencyMhz(freq_mhz);
         WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
         WiFiClass::mode(WIFI_STA);
-        WiFi.setAutoReconnect(true);
-        WiFi.persistent(true);
+//        WiFi.setAutoReconnect(true);
+//        WiFi.persistent(true);
     }
 }
 
@@ -155,7 +155,8 @@ void onTelnetInput(String str) {
                     telnet.println("> Invalid Format, digits only.");
                 else{
                     if(sd1.status())
-                        telPrintLog(std::stoi(args[2].c_str()));
+                        sd1.printTel(std::stoi(args[2].c_str()),telnet);
+//                        telPrintLog(std::stoi(args[2].c_str()));
                     else
                         telnet.println("> Can not access SD card.");
                 }
@@ -242,7 +243,7 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l){
 
                     p[i].addr = LBJ_SYNC_ADDR; // don't know if addr = 1234008 can perform this.
                     Serial.println("Transformed type.");
-
+                    goto lbj_sync;
                 } else {
                     l->type = 0;
                     l->direction = (int8_t)p[i].func;
@@ -376,14 +377,16 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l){
                     }
                 }
 
-                // BCD to HEX and to ASCII for class
+                // BCD to HEX and to ASCII for class  todo: Add range filter to filter out of table characters, limit by GBK.
                 if (l->info2_hex.length() >= 4 && l->info2_hex[0] != 'X') {
                     // this is very likely the most ugly code I've ever write, I apologize for that.
                     size_t c = 0;
                     for (size_t v = 0; v < 3; v++, c++) {
                         int a = isdigit(l->info2_hex[v]) ? (l->info2_hex[v] - '0') : (l->info2_hex[v] - '0' - 7),
                                 b = isdigit(l->info2_hex[v + 1]) ? (l->info2_hex[++v] - '0') : (l->info2_hex[++v] - '0' - 7);
-                        l->lbj_class[c] = (int8_t) ((a << 4) | b);
+                        auto ch = (int8_t) ((a << 4) | b);
+                        if (ch > 0x1F && ch < 0x7F )
+                            l->lbj_class[c] = ch;
                     }
                 }
                 // to GBK for route.
@@ -392,7 +395,9 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l){
                     for (size_t v = 14; v < 17; v++, c++) {
                         int a = isdigit(l->info2_hex[v]) ? (l->info2_hex[v] - '0') : (l->info2_hex[v] - '0' - 7),
                                 b = isdigit(l->info2_hex[v + 1]) ? (l->info2_hex[++v] - '0') : (l->info2_hex[++v] - '0' - 7);
-                        l->route[c] = (int8_t) ((a << 4) | b);
+                        auto ch = (int8_t) ((a << 4) | b);
+                        if ( (uint8_t) ch >= 0xA0 || ch == 0x20 )
+                            l->route[c] = ch;
                     }
                 }
                 if (l->info2_hex.length() >= 25 && l->info2_hex[18] != 'X' && l->info2_hex[20] != 'X') {// Character 2
@@ -400,7 +405,9 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l){
                     for (size_t v = 18; v < 21; v++, c++) {
                         int a = isdigit(l->info2_hex[v]) ? (l->info2_hex[v] - '0') : (l->info2_hex[v] - '0' - 7),
                                 b = isdigit(l->info2_hex[v + 1]) ? (l->info2_hex[++v] - '0') : (l->info2_hex[++v] - '0' - 7);
-                        l->route[c] = (int8_t) ((a << 4) | b);
+                        auto ch = (int8_t) ((a << 4) | b);
+                        if ( (uint8_t) ch >= 0xA0 || ch == 0x20 )
+                            l->route[c] = ch;
                     }
                 }
                 if (l->info2_hex.length() >= 30 && l->info2_hex[22] != 'X' && l->info2_hex[25] != 'X') {// Character 3,4
@@ -408,7 +415,9 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l){
                     for (size_t v = 22; v < 29; v++, c++) {
                         int a = isdigit(l->info2_hex[v]) ? (l->info2_hex[v] - '0') : (l->info2_hex[v] - '0' - 7),
                                 b = isdigit(l->info2_hex[v + 1]) ? (l->info2_hex[++v] - '0') : (l->info2_hex[++v] - '0' - 7);
-                        l->route[c] = (int8_t) ((a << 4) | b);
+                        auto ch = (int8_t) ((a << 4) | b);
+                        if ( (uint8_t) ch >= 0xA0 || ch == 0x20 )
+                            l->route[c] = ch;
                     }
                 }
                 gbk2utf8(l->route,l->route_utf8,17);
@@ -416,6 +425,7 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l){
             }
             case LBJ_SYNC_ADDR:
             {
+                lbj_sync:
                 l->type = 2;
                 if (p[i].str.length() == 5 && p[i].str[0] != 'X') {
                     for (size_t c = 1, v = 0; c < 5; c++, v++){
@@ -620,7 +630,11 @@ void telPrintf(bool time_stamp, const char* format, ...) { // Generated by ChatG
 }
 void telPrintLog(int chars){
     File log = sd1.logFile('r');
-    uint32_t pos = log.size() - chars;
+    uint32_t pos,left;
+    if (chars < log.size())
+        pos = log.size() - chars;
+    else
+        pos = 0;left = chars - log.size();
     String line;
     if(!log.seek(pos))
         Serial.println("[SDLOG] seek failed!");
@@ -633,6 +647,8 @@ void telPrintLog(int chars){
         else
             telPrintf(false,"[SDLOG] Read failed!");
     }
+    if (left)
+
     sd1.reopen();
 }
 
@@ -840,6 +856,82 @@ void printDataTelnet(PagerClient::pocsag_data *p,const struct lbj_data& l,const 
     }
     if (l.type != 1) {
         telPrintf(true,"[R:%3.1f dBm/F:%5.2f Hz]\n", r.rssi, r.fer);
+    }
+}
+
+// TODO: Every append sentence costs 20 ms, now two functions costs 200+ in total, try reduce time consumption.
+// Ether by reducing amount of append calling or simplify append function.
+
+void appendDataCSV(SD_LOG sd, PagerClient::pocsag_data *p, const struct lbj_data& l, const struct rx_info& r){
+    // 电压,系统时间,日期,时间,LBJ时间,方向,级别,车次,速度,公里标,机车编号,线路,纬度,经度,HEX,RSSI,FER,原始数据,错误,错误率
+    // LBJ时间,方向,级别,车次,速度,公里标,机车编号,线路,纬度,经度,HEX,RSSI,FER,原始数据,错误,错误率
+    switch (l.type) {
+        case 0:
+        {
+            if (l.direction == FUNCTION_UP)
+                sd.appendCSV(",上行,");
+            else if (l.direction == FUNCTION_DOWN)
+                sd.appendCSV(",下行,");
+            else
+                sd.appendCSV(",%d,",l.direction);
+            sd.appendCSV(",%s,%s,%s,,,,,,",l.train,l.speed,l.position);
+            break;
+        }
+        case 1:
+        {
+            if (l.direction == FUNCTION_UP)
+                sd.appendCSV(",上行,");
+            else if (l.direction == FUNCTION_DOWN)
+                sd.appendCSV(",下行,");
+            else
+                sd.appendCSV(",%d,",l.direction);
+            sd.appendCSV("%s,%s,%s,%s,",l.lbj_class,l.train,l.speed,l.position);
+            sd.appendCSV("%s,%s,",l.loco,l.route_utf8);
+            if (l.pos_lat_deg[1] && l.pos_lat_min[1])
+                sd.appendCSV("%s°%2s′,", l.pos_lat_deg, l.pos_lat_min);
+            else
+                sd.appendCSV("%s,",l.pos_lat);
+            if (l.pos_lon_deg[1] && l.pos_lon_min[1])
+                sd.appendCSV("%s°%2s′,",l.pos_lon_deg,l.pos_lon_min);
+            else
+                sd.appendCSV("%s,",l.pos_lon);
+            sd.appendCSV("\"%s\",",l.info2_hex.c_str());
+            sd.appendCSV("%3.1f,%4.2f,", r.rssi, r.fer);
+            sd.appendCSV("\"");
+            uint8_t err_ttl=0,err_un=0,len=0;
+            for (size_t i = 0; i < POCDAT_SIZE; i++) {
+                if (p[i].is_empty)
+                    continue;
+                sd.appendCSV("[%d/%d:%s]", p[i].addr, p[i].func, p[i].str.c_str());
+                sd.appendCSV("[E:%02d/%02d/%zu]", p[i].errs_uncorrected, p[i].errs_total, (p[i].len / 5) * 32);
+                err_ttl += p[i].errs_total;err_un += p[i].errs_uncorrected;len += (p[i].len / 5) * 32;
+            }
+            sd.appendCSV("\",");
+            sd.appendCSV("%d/%d,",err_un,err_ttl);
+            sd.appendCSV("%.2f%%",((float)err_ttl/(float)len) * 100);
+            sd.appendCSV("\n");
+            break;
+        }
+        case 2:
+        {
+            sd.appendCSV("%s,,,,,,,,,,,",l.time); //time,dir,cls,num,spd,pos,reg,rte,lat,lon,hex,
+            break;
+        }
+    }
+    if (l.type != 1 && !p[0].is_empty) {
+        sd.appendCSV("%3.1f,%5.2f,", r.rssi, r.fer);
+        sd.appendCSV("\"");
+        uint8_t err_un = 0,err_ttl = 0,len = 0;
+        for (size_t i = 0; i < POCDAT_SIZE; i++) {
+            if (p[i].is_empty)
+                continue;
+            sd.appendCSV("[%d/%d:%s]", p[i].addr, p[i].func, p[i].str.c_str());
+            sd.appendCSV("[E:%02d/%02d/%zu]", p[i].errs_uncorrected, p[i].errs_total, (p[i].len / 5) * 32);
+            err_un += p[i].errs_uncorrected;err_ttl += p[i].errs_total;len += (p[i].len / 5) * 32;
+        }
+        sd.appendCSV("\",");
+        sd.appendCSV("%d/%d,%.2f%%",err_un,err_ttl,((float)err_ttl/(float)len) * 100);
+        sd.appendCSV("\n");
     }
 }
 

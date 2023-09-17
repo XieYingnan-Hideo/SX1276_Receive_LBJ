@@ -3,6 +3,16 @@
 //
 
 #include "sdlog.h"
+File SD_LOG::log;
+bool SD_LOG::is_newfile = false;
+char SD_LOG::filename[32] = "";
+bool SD_LOG::sd_log = false;
+struct tm SD_LOG::timein{};
+fs::FS* SD_LOG::filesys;
+int SD_LOG::log_count = 0;
+const char * SD_LOG::log_directory{};
+String SD_LOG::log_path;
+bool SD_LOG::is_startline = true;
 
 SD_LOG::SD_LOG(fs::FS &fs) {
     filesys = &fs;
@@ -39,14 +49,58 @@ void SD_LOG::getFilename(const char* path){
 
     if(last_log.size() <= MAX_LOG_SIZE && counter > 0) {
         sprintf(filename, "%s", last_log.name());
+        log_count = counter;
     }
     else{
         sprintf(filename,"LOG_%04d.txt",counter);
         is_newfile = true;
+        log_count = counter;
     }
     Serial.printf("[SDLOG] %d log files, using %s \n",counter,filename);
     sd_log = true;
 }
+
+void SD_LOG::getFilenameCSV(const char* path){
+    File cwd = filesys->open(path,FILE_READ,false);
+    if (!cwd){
+        filesys->mkdir(path);
+        cwd = filesys->open(path,FILE_READ,false);
+        if (!cwd){
+            Serial.println("[SDLOG] Failed to open csv directory!");
+            Serial.println("[SDLOG] Will not write csv to SD card.");
+            sd_csv = false;
+            return;
+        }
+    }
+    if (!cwd.isDirectory()){
+        Serial.println("[SDLOG] csv directory error!");
+        sd_csv = false;
+        return;
+    }
+    char last[32];
+    int counter = 0;
+    while (cwd.openNextFile()){
+        counter++;
+    }
+    sprintf(last,"CSV_%04d.csv",counter-1);
+    String last_path = String(String(path) +"/"+ String(last));
+    if (!filesys->exists(last_path)){
+        sprintf(last,"CSV_%04d.csv",counter-1);
+        last_path = String(String(path) +"/"+ String(last));
+    }
+    File last_csv = filesys->open(last_path);
+
+    if(last_csv.size() <= MAX_LOG_SIZE && counter > 0 && last_csv) {
+        sprintf(filename_csv, "%s", last_csv.name());
+    }
+    else{
+        sprintf(filename_csv,"CSV_%04d.csv",counter);
+        is_newfile_csv = true;
+    }
+    Serial.printf("[SDLOG] %d csv files, using %s \n",counter,filename_csv);
+    sd_csv = true;
+}
+
 int SD_LOG::begin(const char* path){
     log_directory = path;
     getFilename(path);
@@ -65,6 +119,24 @@ int SD_LOG::begin(const char* path){
     return 0;
 }
 
+int SD_LOG::begincsv(const char* path){
+    csv_directory = path;
+    getFilenameCSV(path);
+    if (!sd_csv)
+        return -1;
+    csv_path = String(String(path) + '/' + filename_csv);
+    csv = filesys->open(csv_path,"a",true);
+    if (!csv){
+        Serial.println("[SDLOG] Failed to open csv file!");
+        Serial.println("[SDLOG] Will not write csv to SD card.");
+        sd_csv = false;
+        return -1;
+    }
+    writeHeaderCSV();
+    sd_csv = true;
+    return 0;
+}
+
 void SD_LOG::writeHeader(){
     log.println("-------------------------------------------------");
     if(is_newfile){
@@ -76,6 +148,50 @@ void SD_LOG::writeHeader(){
                timein.tm_year+1900,timein.tm_mon+1, timein.tm_mday,timein.tm_hour , timein.tm_min, timein.tm_sec);
     log.println("-------------------------------------------------");
     log.flush();
+}
+
+void SD_LOG::writeHeaderCSV(){ // TODO: needs more confirmation about title.
+    if(is_newfile_csv){
+        csv.printf("# ESP32 DEV MODULE CSV FILE %s \n",filename_csv);
+        csv.printf("电压,系统时间,日期,时间,LBJ时间,方向,级别,车次,速度,公里标,机车编号,线路,纬度,经度,HEX,RSSI,FER,原始数据,错误,错误率\n");
+    }
+    csv.flush();
+}
+
+void SD_LOG::appendCSV(const char *format, ...) { // TODO: maybe implement item based csv append?
+    if(!sd_csv){
+        return;
+    }
+    if(!filesys->exists(csv_path)){
+        Serial.println("[SDLOG] CSV file unavailable!");
+        sd_csv = false;
+        SD.end();
+        return;
+    }
+    if (csv.size()>=MAX_CSV_SIZE){
+        csv.close();
+        begincsv(csv_directory);
+    }
+    char buffer[256];
+    va_list args;
+    va_start(args,format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    if (is_startline_csv){
+        csv.printf("%1.2f,",battery.readVoltage()*2);
+        csv.printf("%lu,",millis());
+        if (getLocalTime(&timein,0)){
+            csv.printf("%d-%02d-%02d,%02d:%02d:%02d,",timein.tm_year+1900,timein.tm_mon+1,
+                       timein.tm_mday,timein.tm_hour , timein.tm_min, timein.tm_sec);
+        } else {
+            csv.printf("null,null,");
+        }
+        is_startline_csv = false;
+    }
+    if (nullptr != strchr(format,'\n')) /* detect end of line in stream */
+        is_startline_csv = true;
+    csv.print(buffer);
+    csv.flush();
 }
 
 void SD_LOG::append(const char* format, ...){
@@ -110,6 +226,7 @@ void SD_LOG::append(const char* format, ...){
         is_startline = true;
     log.print(buffer);
     log.flush();
+    Serial.printf("[D] Using log %s \n",log_path.c_str());
 }
 
 File SD_LOG::logFile(char op){
@@ -134,6 +251,50 @@ File SD_LOG::logFile(char op){
             log = filesys->open(log_path,"a");
     }
     return log;
+}
+
+void SD_LOG::printTel(int chars, ESPTelnet& tel) {
+    log.close();
+    uint32_t pos,left;
+    File log_r = filesys->open(log_path,"r");
+    if (chars < log_r.size())
+        pos = log_r.size() - chars;
+    else
+        pos = 0;left = chars - log_r.size();
+    String line;
+    if(!log_r.seek(pos))
+        Serial.println("[SDLOG] seek failed!");
+    while (log_r.available()){
+        line = log_r.readStringUntil('\n');
+        if (line){
+            tel.print(line);
+            tel.print("\n");
+        }
+        else
+            tel.printf("[SDLOG] Read failed!\n");
+    }
+    if (left) {
+        char last_file_name[32];
+        sprintf(last_file_name,"LOG_%04d.txt",log_count-1);
+        String log_last_path = String(log_directory) + '/' + String(last_file_name);
+        log_r = filesys->open(last_file_name,"r");
+        if (left < log_r.size())
+            pos = log_r.size() - left;
+        else
+            pos = 0;
+        if(!log_r.seek(pos))
+            Serial.println("[SDLOG] seek failed!");
+        while (log_r.available()){
+            line = log_r.readStringUntil('\n');
+            if (line){
+                tel.print(line);
+                tel.print("\n");
+            }
+            else
+                tel.print("[SDLOG] Read failed!\n");
+        }
+    }
+    log = filesys->open(log_path,"a");
 }
 
 void SD_LOG::reopen(){

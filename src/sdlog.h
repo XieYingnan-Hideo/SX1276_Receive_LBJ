@@ -10,33 +10,50 @@
 #include <Arduino.h>
 #include <ctime>
 #include "utilities.h"
-#define MAX_LOG_SIZE 5000000
+#include "ESPTelnet.h"
+#include "boards.h"
+#define MAX_LOG_SIZE 500000 // 500000 default
+#define MAX_CSV_SIZE 500000
 
 class SD_LOG{
 public:
     explicit SD_LOG(fs::FS &fs);
-    int begin(const char* path);
-    void append(const char* format, ...);
+    static int begin(const char* path);
+    int begincsv(const char* path);
+    void getFilenameCSV(const char* path);
+    static void append(const char* format, ...);
+    void appendCSV(const char *format, ...);
+    void printTel(int chars, ESPTelnet& tel);
     // todo add csv file.
     File logFile(char op);
+    
     void reopen();
-    bool status();
+    static bool status();
 
 private:
-    void getFilename(const char* path);
-    void writeHeader();
-    String log_path;
-    fs::FS* filesys;
-    File log;
-    char filename[32] = "";
-    bool sd_log = false;
+    static void getFilename(const char* path);
+    static void writeHeader();
+    void writeHeaderCSV();
+    static String log_path;
+    String csv_path;
+    static fs::FS* filesys;
+    static File log;
+    File csv;
+    static int log_count; // Actual file count - 1. =0 default
+    static char filename[32]; // =""
+    char filename_csv[32] = "";
+    static bool sd_log; // = false
+    bool sd_csv = false;
     bool have_sd = false;
     bool haveNTP = false;
-    bool is_newfile = false;
-    bool is_startline = true;
-    const char * log_directory{};
+    static bool is_newfile; // = false
+    static bool is_startline; // = true
+    bool is_newfile_csv = false;
+    bool is_startline_csv = true;
+    static const char * log_directory;
+    const char * csv_directory{};
 
-    struct tm timein{};
+    static struct tm timein;
 };
 
 

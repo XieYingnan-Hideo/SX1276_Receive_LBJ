@@ -94,10 +94,12 @@ void recodeBCD(const char *c, String *v);
 int enc_unicode_to_utf8_one(unsigned long unic,unsigned char *pOutput);
 void gbk2utf8(const uint8_t *gbk,uint8_t *utf8,size_t gbk_len);
 void gbk2utf8(const char *gbk1,char *utf8s,size_t gbk_len);
+void telPrintf(bool time_stamp, const char* format, ...);
 void telPrintLog(int chars);
 
 void printDataSerial(PagerClient::pocsag_data *p,const struct lbj_data& l,const struct rx_info& r);
 void appendDataLog(SD_LOG sd, PagerClient::pocsag_data *p, const struct lbj_data& l, const struct rx_info& r);
 void printDataTelnet(PagerClient::pocsag_data *p,const struct lbj_data& l,const struct rx_info& r);
+void appendDataCSV(SD_LOG sd, PagerClient::pocsag_data *p, const struct lbj_data& l, const struct rx_info& r);
 
 #endif //PAGER_RECEIVE_NETWORKS_H

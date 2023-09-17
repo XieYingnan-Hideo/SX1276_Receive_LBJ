@@ -143,7 +143,7 @@ void updateInfo(){
     u8g2->drawStr(91,64,buffer);
     voltage = battery.readVoltage()*2;
     sprintf(buffer,"%1.2f",voltage); // todo: Implement average voltage reading.
-    if (voltage < 2.9 && !low_volt_warned)
+    if (voltage < 3.15 && !low_volt_warned)
     {
         Serial.printf("Warning! Low Voltage detected, %1.2fV\n",voltage);
         sd1.append("低压警告，电池电压%1.2fV\n",voltage);
@@ -184,7 +184,7 @@ void showLBJ1(const struct lbj_data& l){
     u8g2->setDrawColor(0);
     u8g2->drawBox(0,8,128,48);
     u8g2->setDrawColor(1);
-    u8g2->setFont(u8g2_font_wqy12_t_gb2312);
+    u8g2->setFont(u8g2_font_wqy12_t_gb2312a);
     // line 1
     sprintf(buffer,"车:%s%s",l.lbj_class,l.train);
     u8g2->drawUTF8(0,19,buffer);
@@ -300,7 +300,7 @@ void dualPrintln(const char* fmt){
 void LBJTEST(){
     PagerClient::pocsag_data pocdat[16];
     pocdat[0].str = "37012";pocdat[0].addr = 1234000;pocdat[0].func = 1;pocdat[0].is_empty = false;pocdat[0].len = 15;
-    pocdat[1].str = "XXXXX";pocdat[1].addr = 1234002;pocdat[1].func = 1;pocdat[1].is_empty = true;pocdat[1].len = 0;
+    pocdat[1].str = "20202350018530U)*9UU*6 (-(202011719040139058291000";pocdat[1].addr = 1234002;pocdat[1].func = 1;pocdat[1].is_empty = false;pocdat[1].len = 0;
 //    Serial.println("[LBJ] 测试输出 机车编号 位置 XX°XX′XX″ ");
 //    dualPrintf(false,"[LBJ] 测试输出 机车编号 位置 XX°XX′XX″ \n");
     struct lbj_data lbj;
@@ -323,6 +323,7 @@ void setup() {\
 
     if(have_sd){
         sd1.begin("/LOGTEST");
+        sd1.begincsv("/CSVTEST");
         sd1.append("电池电压 %1.2fV\n",battery.readVoltage()*2);
     }
     // Sync time.
@@ -331,7 +332,7 @@ void setup() {\
     sntp_servermode_dhcp(1);
     configTzTime(time_zone, ntpServer1, ntpServer2);
     showInitComp();
-    u8g2->setFont(u8g2_font_wqy12_t_gb2312);
+    u8g2->setFont(u8g2_font_wqy12_t_gb2312a);
     u8g2->setCursor(0,52);
     u8g2->println("Initializing...");
     u8g2->sendBuffer();
@@ -374,7 +375,7 @@ void setup() {\
     Serial.print(F("[Pager] Initializing ... "));
     // base (center) frequency:     821.2375 MHz + 0.005 FE
     // speed:                       1200 bps
-    state = pager.begin(821.2375 + 0.0050, 1200, false, 2500);
+    state = pager.begin(821.2375 + 0.005, 1200, false, 2500);
     if (state == RADIOLIB_ERR_NONE) {
         Serial.println(F("success!"));
     } else {
@@ -386,7 +387,7 @@ void setup() {\
     // start receiving POCSAG messages
     Serial.print(F("[Pager] Starting to listen ... "));
     // address of this "pager":     12340XX
-    state = pager.startReceive(pin, 1234000, 0xFFFF0);
+    state = pager.startReceive(pin, 1234000, 0xFFFF0); //todo enhancement: try to keep a open address filter, we might find something unknown.
     if (state == RADIOLIB_ERR_NONE) {
         Serial.println(F("success."));
     } else {
@@ -409,7 +410,7 @@ void setup() {\
 
     digitalWrite(BOARD_LED, LOW);
     Serial.printf("Booting time %llu ms\n",millis()-timer2);
-    sd1.append("启动用时 %lu ms\n",millis()-timer2);
+    sd1.append("启动用时 %llu ms\n",millis()-timer2);
     timer2 = 0;
 
     u8g2->setDrawColor(0);
@@ -419,7 +420,7 @@ void setup() {\
     u8g2->sendBuffer();
     Serial.printf("Mem left: %d Bytes\n",esp_get_free_heap_size());
     // test stuff
-//  LBJTEST()
+//    LBJTEST();
 //     Serial.printf("CPU FREQ %d MHz\n",ets_get_cpu_frequency());
 
 }
@@ -450,12 +451,17 @@ void loop() {
         if (isConnected())
             setCpuFrequencyMhz(80);
         else {  // FIXME 这个还是不行，跳转到240MHz时如果连接丢失在240MHz时无法重新连接。
+            uint64_t time = millis();
             WiFiClass::mode(WIFI_OFF);
+//            WiFi.disconnect();
             setCpuFrequencyMhz(80);
+            WiFiClass::mode(WIFI_MODE_STA);
             WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-            WiFiClass::mode(WIFI_STA);
-            WiFi.setAutoReconnect(true);
-            WiFi.persistent(true);
+//            Serial.printf("[D] Uses %llu ms.",millis()-time);
+//            WiFiClass::mode(WIFI_STA);
+//            WiFi.setAutoReconnect(true);
+//            WiFi.persistent(true);
+//            WiFi.reconnect();
         }
         exec_init_f80 = true;
     }
@@ -468,13 +474,16 @@ void loop() {
         timer3 = millis();
     }
 
-//    if (millis()%10000 == 0){
-//        dualPrintf(true,"当前运行时间 %lu",micros());
-//        dualPrintf(true," us\n");
+//    if (millis()%5000 == 0){
+//        sd1.append("[D] 当前运行时间 %lu ms.\n",millis());
 //    }
 
-    if (millis()-timer1 >= 100)
+    if (millis()-timer1 >= 100 && timer1) {
+        Serial.printf("LED LOW [%llu]\n",millis()-timer1);
         digitalWrite(BOARD_LED, LOW);
+        timer1 = 0;
+        changeCpuFreq(240); // TODO: 这玩意重启WIFI要2s的时间，想办法优化一下，要不真不行...优化到88ms了貌似，有机会看看能不能再优化点
+    }
 
     if (millis()-timer4 >= 60000 && timer4!=0 && ets_get_cpu_frequency() != 80)
 //        setCpuFrequencyMhz(80);
@@ -490,14 +499,15 @@ void loop() {
     telnet.loop();
 
     if (pager.gotSyncState()) {
-        // FIXME: Due to unknown reasons, adding AGCStart function to SX127X.cpp cause the radio go deaf.
-    //    if (radio.getRSSI() >= -60.0 && !agc_triggered){ // todo: validate this function.
+//        sd1.append("[PGR][DEBUG] SYNC DETECTED.\n");
+        // INFO: This function can not work, calling agc here stops receiving.
+    //    if (radio.getRSSI() >= -60.0 && !agc_triggered){
     //        Serial.println("[SX1276][D] AGC TRIGGERED.");
     //        radio.startAGC();
     //        Serial.printf("[SX1276] AGC Triggered. Current Gain Pos %d\n",radio.getGain());
     //        agc_triggered = true;
     //    }
-        if (rxInfo.cnt < 10 && (rxInfo.timer == 0 || micros() - rxInfo.timer > 11000 || micros() - rxInfo.timer < 0)) {
+        if (rxInfo.cnt < 5 && (rxInfo.timer == 0 || micros() - rxInfo.timer > 11000 || micros() - rxInfo.timer < 0)) {
             // It seems the micros will overflow,causing the program to stuck here. （真的吗...）
             float rssi = radio.getRSSI(false,true);
             // if (rssi >= -80.0 && !agc_triggered){
@@ -506,7 +516,7 @@ void loop() {
             //     agc_triggered = true;
             // }
             rxInfo.timer = micros();
-            rxInfo.rssi += rssi;
+            rxInfo.rssi += rssi; // decreased amount of rssi samples due to read data task running on spi bus.
             // Serial.printf("[D] RXI %.2f\n",rxInfo.rssi);
             rxInfo.cnt++;
         }
@@ -518,6 +528,7 @@ void loop() {
     // 2 batches will usually be enough to fit short and medium messages
     if (pager.available() >= 2) { // todo add session timeout exception to prevent stuck here.
         Serial.println("[PHY-LAYER][D] AVAILABLE > 2.");
+//        sd1.append("[PHY-LAYER][D] AVAILABLE > 2.\n");
         rxInfo.rssi = rxInfo.rssi/(float)rxInfo.cnt;
         rxInfo.cnt = 0; rxInfo.timer = 0;
         timer2 = millis(); timer4=millis();
@@ -527,7 +538,7 @@ void loop() {
         PagerClient::pocsag_data pocdat[POCDAT_SIZE];
         struct lbj_data lbj;
 
-//        Serial.print(F("[Pager] Received pager data, decoding ... "));
+        Serial.println(F("[Pager] Received pager data, decoding ... "));
 
         // you can read the data as an Arduino String
         String str = {};
@@ -545,11 +556,18 @@ void loop() {
                 str = str + "  " + i.str;
             }
 
+            Serial.printf("decode complete.[%llu]",millis()-timer2);
             readDataLBJ(pocdat,&lbj);
+            Serial.printf("Read complete.[%llu]",millis()-timer2);
             printDataSerial(pocdat,lbj,rxInfo);
+            Serial.printf("SPRINT complete.[%llu]",millis()-timer2);
             appendDataLog(sd1,pocdat,lbj,rxInfo);
+            Serial.printf("sdprint complete.[%llu]",millis()-timer2);
+            appendDataCSV(sd1,pocdat,lbj,rxInfo);
+            Serial.printf("csvprint complete.[%llu]",millis()-timer2);
             printDataTelnet(pocdat,lbj,rxInfo);
-            // todo 还是把BER加LOG里吧，，然后你看下RSSI感觉还是有问题
+            Serial.printf("telprint complete.[%llu]",millis()-timer2);
+            // todo 还是把BER加LOG里吧. BER会考虑加CSV里面
             // Serial.printf("type %d \n",lbj.type);
 
 //            // print rssi
@@ -580,7 +598,7 @@ void loop() {
                     else if (lbj.type == 2){
                          showLBJ2(lbj);
                     }
-
+                    Serial.printf("Complete u8g2 [%llu]\n",millis()-timer2);
 
             }
 #endif
@@ -601,10 +619,10 @@ void loop() {
         Serial.printf("[Pager] Processing time %llu ms.\n",millis()-timer2);
         timer2 = 0;
         rxInfo.rssi = 0; rxInfo.fer = 0;
-    //    if (agc_triggered) { // todo Validate this function.
+    //    if (agc_triggered) {
     //        radio.setGain(1);
     //        agc_triggered = false;
     //    }
-        changeCpuFreq(240);
     }
 }
+// END OF FILE.
