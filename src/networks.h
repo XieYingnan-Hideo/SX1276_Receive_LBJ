@@ -61,6 +61,7 @@ extern struct tm time_info;
 
 #define WIFI_SSID       "MI CC9 Pro"
 #define WIFI_PASSWORD   "11223344"
+#define NETWORK_TIMEOUT 1800000 // 30 minutes
 
 #define POCDAT_SIZE 16 // defines number of the pocsag data structures.
 
@@ -71,6 +72,7 @@ extern bool is_startline;
 extern SD_LOG sd1;
 extern bool give_tel_rssi;
 extern bool give_tel_gain;
+extern bool no_wifi;
 
 bool isConnected();
 bool connectWiFi(const char* ssid, const char* password, int max_tries = 20, int pause = 500);
@@ -98,7 +100,7 @@ void telPrintf(bool time_stamp, const char* format, ...);
 void telPrintLog(int chars);
 
 void printDataSerial(PagerClient::pocsag_data *p,const struct lbj_data& l,const struct rx_info& r);
-void appendDataLog(SD_LOG sd, PagerClient::pocsag_data *p, const struct lbj_data& l, const struct rx_info& r);
+void appendDataLog(PagerClient::pocsag_data *p, const struct lbj_data& l, const struct rx_info& r);
 void printDataTelnet(PagerClient::pocsag_data *p,const struct lbj_data& l,const struct rx_info& r);
 void appendDataCSV(SD_LOG sd, PagerClient::pocsag_data *p, const struct lbj_data& l, const struct rx_info& r);
 

@@ -42,10 +42,12 @@ const int pin = RADIO_BUSY_PIN;
 //float fer = 0;
 // create Pager client instance using the FSK module
 PagerClient pager(&radio);
+// todo: millis返回值每50天就会溢出，考虑新建一个变量，返回值每归零一次就加1，并且以此处理使用计时器的函数。
 uint64_t timer1 = 0;
 uint64_t timer2 = 0;
 uint64_t timer3 = 0;
 uint64_t timer4 = 0;
+uint64_t net_timer = 0;
 uint32_t ip_last = 0;
 bool is_startline = true;
 bool exec_init_f80 = false;
@@ -53,6 +55,7 @@ bool agc_triggered = false;
 bool low_volt_warned = false;
 bool give_tel_rssi = false;
 bool give_tel_gain = false;
+bool no_wifi = false;
 SD_LOG sd1(SD);
 struct rx_info rxInfo;
 
@@ -146,7 +149,7 @@ void updateInfo(){
     if (voltage < 3.15 && !low_volt_warned)
     {
         Serial.printf("Warning! Low Voltage detected, %1.2fV\n",voltage);
-        sd1.append("低压警告，电池电压%1.2fV\n",voltage);
+        SD_LOG::append("低压警告，电池电压%1.2fV\n",voltage);
         low_volt_warned = true;
     }
     u8g2->drawStr(105,64,buffer);
@@ -322,9 +325,9 @@ void setup() {\
     delay(150);
 
     if(have_sd){
-        sd1.begin("/LOGTEST");
-        sd1.begincsv("/CSVTEST");
-        sd1.append("电池电压 %1.2fV\n",battery.readVoltage()*2);
+        SD_LOG::begin("/LOGTEST");
+        SD_LOG::beginCSV("/CSVTEST");
+        SD_LOG::append("电池电压 %1.2fV\n",battery.readVoltage()*2);
     }
     // Sync time.
 
@@ -410,7 +413,7 @@ void setup() {\
 
     digitalWrite(BOARD_LED, LOW);
     Serial.printf("Booting time %llu ms\n",millis()-timer2);
-    sd1.append("启动用时 %llu ms\n",millis()-timer2);
+    SD_LOG::append("启动用时 %llu ms\n",millis()-timer2);
     timer2 = 0;
 
     u8g2->setDrawColor(0);
@@ -428,6 +431,17 @@ void setup() {\
 // LOOP
 
 void loop() {
+    if (isConnected() && net_timer != 0)
+        net_timer = 0;
+    else if (!isConnected() && net_timer == 0)
+        net_timer = millis();
+
+    if (!isConnected() && millis() - net_timer > NETWORK_TIMEOUT ) {
+        WiFi.disconnect();
+        WiFiClass::mode(WIFI_OFF);
+        no_wifi = true;
+    }
+
     if (ip_last != WiFi.localIP()){
         Serial.print("Local IP ");
         Serial.print(WiFi.localIP());
@@ -469,7 +483,7 @@ void loop() {
 
     if (timer3 == 0){
         timer3 = millis();
-    } else if( millis() - timer3 > 500){
+    } else if( millis() - timer3 > 3000){ // Set to 3000 to reduce interference.
         updateInfo();
         timer3 = millis();
     }
@@ -559,15 +573,19 @@ void loop() {
             Serial.printf("decode complete.[%llu]",millis()-timer2);
             readDataLBJ(pocdat,&lbj);
             Serial.printf("Read complete.[%llu]",millis()-timer2);
+
             printDataSerial(pocdat,lbj,rxInfo);
             Serial.printf("SPRINT complete.[%llu]",millis()-timer2);
-            appendDataLog(sd1,pocdat,lbj,rxInfo);
+
+            SD_LOG::disableSizeCheck();
+            appendDataLog(pocdat,lbj,rxInfo);
             Serial.printf("sdprint complete.[%llu]",millis()-timer2);
             appendDataCSV(sd1,pocdat,lbj,rxInfo);
             Serial.printf("csvprint complete.[%llu]",millis()-timer2);
+            SD_LOG::enableSizeCheck();
+
             printDataTelnet(pocdat,lbj,rxInfo);
             Serial.printf("telprint complete.[%llu]",millis()-timer2);
-            // todo 还是把BER加LOG里吧. BER会考虑加CSV里面
             // Serial.printf("type %d \n",lbj.type);
 
 //            // print rssi
@@ -613,7 +631,7 @@ void loop() {
         }
         else {
             // some error occurred
-            sd1.append("[Pager] Reception failed, code %d \n",state);
+            SD_LOG::append("[Pager] Reception failed, code %d \n",state);
             dualPrintf(true,"[Pager] Reception failed, code %d \n",state);
         }
         Serial.printf("[Pager] Processing time %llu ms.\n",millis()-timer2);

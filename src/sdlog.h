@@ -12,46 +12,62 @@
 #include "utilities.h"
 #include "ESPTelnet.h"
 #include "boards.h"
+
 #define MAX_LOG_SIZE 500000 // 500000 default
 #define MAX_CSV_SIZE 500000
 
-class SD_LOG{
+class SD_LOG {
 public:
     explicit SD_LOG(fs::FS &fs);
-    static int begin(const char* path);
-    int begincsv(const char* path);
-    void getFilenameCSV(const char* path);
-    static void append(const char* format, ...);
-    void appendCSV(const char *format, ...);
-    void printTel(int chars, ESPTelnet& tel);
-    // todo add csv file.
-    File logFile(char op);
-    
-    void reopen();
+
+    static int begin(const char *path);
+
+    static int beginCSV(const char *path);
+
+    static void getFilenameCSV(const char *path);
+
+    static void append(const char *format, ...);
+
+    static void appendCSV(const char *format, ...);
+
+    static void printTel(int chars, ESPTelnet &tel);
+
+    static File logFile(char op);
+
+    static void reopen();
+
+    static void disableSizeCheck();
+
+    static void enableSizeCheck();
+
     static bool status();
 
 private:
-    static void getFilename(const char* path);
+    static void getFilename(const char *path);
+
     static void writeHeader();
-    void writeHeaderCSV();
+
+    static void writeHeaderCSV();
+
     static String log_path;
-    String csv_path;
-    static fs::FS* filesys;
+    static String csv_path;
+    static fs::FS *filesys;
     static File log;
-    File csv;
+    static File csv;
     static int log_count; // Actual file count - 1. =0 default
     static char filename[32]; // =""
-    char filename_csv[32] = "";
+    static char filename_csv[32];
     static bool sd_log; // = false
-    bool sd_csv = false;
-    bool have_sd = false;
-    bool haveNTP = false;
+    static bool sd_csv;
+//    bool have_sd = false;
+//    bool haveNTP = false;
     static bool is_newfile; // = false
     static bool is_startline; // = true
-    bool is_newfile_csv = false;
-    bool is_startline_csv = true;
-    static const char * log_directory;
-    const char * csv_directory{};
+    static bool size_checked;
+    static bool is_newfile_csv;
+    static bool is_startline_csv;
+    static const char *log_directory;
+    static const char *csv_directory;
 
     static struct tm timein;
 };
