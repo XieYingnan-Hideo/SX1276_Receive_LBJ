@@ -507,7 +507,7 @@ void loop() {
 //    }
 
     if (millis() - timer1 >= 100 && timer1) {
-        Serial.printf("LED LOW [%llu]\n", millis() - timer1);
+        // Serial.printf("LED LOW [%llu]\n", millis() - timer1);
         digitalWrite(BOARD_LED, LOW);
         timer1 = 0;
         changeCpuFreq(240); // TODO: 这玩意重启WIFI要2s的时间，想办法优化一下，要不真不行...优化到88ms了貌似，有机会看看能不能再优化点
@@ -558,7 +558,7 @@ void loop() {
     // the number of batches to wait for
     // 2 batches will usually be enough to fit short and medium messages
     if (pager.available() >= 2) { // todo add session timeout exception to prevent stuck here.
-        Serial.println("[PHY-LAYER][D] AVAILABLE > 2.");
+        // Serial.println("[PHY-LAYER][D] AVAILABLE > 2.");
 //        sd1.append("[PHY-LAYER][D] AVAILABLE > 2.\n");
         rxInfo.rssi = rxInfo.rssi / (float) rxInfo.cnt;
         rxInfo.cnt = 0;
@@ -590,22 +590,22 @@ void loop() {
                 str = str + "  " + i.str;
             }
 
-            Serial.printf("decode complete.[%llu]", millis() - timer2);
+            // Serial.printf("decode complete.[%llu]", millis() - timer2);
             readDataLBJ(pocdat, &lbj);
-            Serial.printf("Read complete.[%llu]", millis() - timer2);
+            // Serial.printf("Read complete.[%llu]", millis() - timer2);
 
             printDataSerial(pocdat, lbj, rxInfo);
-            Serial.printf("SPRINT complete.[%llu]", millis() - timer2);
+            // Serial.printf("SPRINT complete.[%llu]", millis() - timer2);
 
             SD_LOG::disableSizeCheck();
             appendDataLog(pocdat, lbj, rxInfo);
-            Serial.printf("sdprint complete.[%llu]", millis() - timer2);
+            // Serial.printf("sdprint complete.[%llu]", millis() - timer2);
             appendDataCSV(pocdat, lbj, rxInfo);
-            Serial.printf("csvprint complete.[%llu]", millis() - timer2);
+            // Serial.printf("csvprint complete.[%llu]", millis() - timer2);
             SD_LOG::enableSizeCheck();
 
             printDataTelnet(pocdat, lbj, rxInfo);
-            Serial.printf("telprint complete.[%llu]", millis() - timer2);
+            // Serial.printf("telprint complete.[%llu]", millis() - timer2);
             // Serial.printf("type %d \n",lbj.type);
 
 //            // print rssi
@@ -635,7 +635,7 @@ void loop() {
                 } else if (lbj.type == 2) {
                     showLBJ2(lbj);
                 }
-                Serial.printf("Complete u8g2 [%llu]\n", millis() - timer2);
+                // Serial.printf("Complete u8g2 [%llu]\n", millis() - timer2);
 
             }
 #endif
