@@ -713,60 +713,61 @@ void appendDataLog(PagerClient::pocsag_data *p, const struct lbj_data& l, const 
         case 0:
         {
             if (l.direction == FUNCTION_UP)
-                SD_LOG::append("[LBJ] 方向: 上行  ");
+                SD_LOG::appendBuffer("[LBJ] 方向: 上行  ");
             else if (l.direction == FUNCTION_DOWN)
-                SD_LOG::append("[LBJ] 方向: 下行  ");
+                SD_LOG::appendBuffer("[LBJ] 方向: 下行  ");
             else
-                SD_LOG::append("[LBJ] 方向: %4d  ",l.direction);
-            SD_LOG::append("车次: %s  速度: %s KM/H  公里标: %s KM  ",l.train,l.speed,l.position);
+                SD_LOG::appendBuffer("[LBJ] 方向: %4d  ",l.direction);
+            SD_LOG::appendBuffer("车次: %s  速度: %s KM/H  公里标: %s KM  ",l.train,l.speed,l.position);
             break;
         }
         case 1:
         {
-            SD_LOG::append("==================================================================================\n");
+            SD_LOG::appendBuffer("==================================================================================\n");
             if (l.direction == FUNCTION_UP)
-                SD_LOG::append("[LBJ] 方向: 上行     ");
+                SD_LOG::appendBuffer("[LBJ] 方向: 上行     ");
             else if (l.direction == FUNCTION_DOWN)
-                SD_LOG::append("[LBJ] 方向: 下行     ");
+                SD_LOG::appendBuffer("[LBJ] 方向: 下行     ");
             else
-                SD_LOG::append("[LBJ] 方向: %3d     ",l.direction);
-            SD_LOG::append("车次: %s%s   速度: %s KM/H  公里标: %s KM \n",l.lbj_class,l.train,l.speed,l.position);
-            SD_LOG::append("[LBJ] 线路: %s 车号: %s  ",l.route_utf8,l.loco);
+                SD_LOG::appendBuffer("[LBJ] 方向: %3d     ",l.direction);
+            SD_LOG::appendBuffer("车次: %s%s   速度: %s KM/H  公里标: %s KM \n",l.lbj_class,l.train,l.speed,l.position);
+            SD_LOG::appendBuffer("[LBJ] 线路: %s 车号: %s  ",l.route_utf8,l.loco);
             if (l.pos_lat_deg[1] && l.pos_lat_min[1])
-                SD_LOG::append("位置: %s°%2s′ ", l.pos_lat_deg, l.pos_lat_min);
+                SD_LOG::appendBuffer("位置: %s°%2s′ ", l.pos_lat_deg, l.pos_lat_min);
             else
-                SD_LOG::append("位置: %s ",l.pos_lat);
+                SD_LOG::appendBuffer("位置: %s ",l.pos_lat);
             if (l.pos_lon_deg[1] && l.pos_lon_min[1])
-                SD_LOG::append("%s°%2s′ \n",l.pos_lon_deg,l.pos_lon_min);
+                SD_LOG::appendBuffer("%s°%2s′ \n",l.pos_lon_deg,l.pos_lon_min);
             else
-                SD_LOG::append("%s \n",l.pos_lon);
-            SD_LOG::append("----------------------------------------------------------------------------------\n");
-            SD_LOG::append("[RXI] [R:%3.1f dBm/F:%4.2f Hz]\n", r.rssi, r.fer);
+                SD_LOG::appendBuffer("%s \n",l.pos_lon);
+            SD_LOG::appendBuffer("----------------------------------------------------------------------------------\n");
+            SD_LOG::appendBuffer("[RXI] [R:%3.1f dBm/F:%4.2f Hz]\n", r.rssi, r.fer);
             for (size_t i = 0; i < POCDAT_SIZE; i++) {
                 if (p[i].is_empty)
                     continue;
-                SD_LOG::append("[PGR] [%d/%d:%s]", p[i].addr, p[i].func, p[i].str.c_str());
-                SD_LOG::append("[E:%02d/%02d/%zu]\n", p[i].errs_uncorrected, p[i].errs_total, (p[i].len / 5) * 32);
+                SD_LOG::appendBuffer("[PGR] [%d/%d:%s]", p[i].addr, p[i].func, p[i].str.c_str());
+                SD_LOG::appendBuffer("[E:%02d/%02d/%zu]\n", p[i].errs_uncorrected, p[i].errs_total, (p[i].len / 5) * 32);
             }
-            SD_LOG::append("==================================================================================\n");
+            SD_LOG::appendBuffer("==================================================================================\n");
             break;
         }
         case 2:
         {
-            SD_LOG::append("[LBJ] 当前时间 %s  ",l.time);
+            SD_LOG::appendBuffer("[LBJ] 当前时间 %s  ",l.time);
             break;
         }
     }
     if (l.type != 1) {
-        SD_LOG::append("[R:%3.1f dBm/F:%5.2f Hz]", r.rssi, r.fer);
+        SD_LOG::appendBuffer("[R:%3.1f dBm/F:%5.2f Hz]", r.rssi, r.fer);
         for (size_t i = 0; i < POCDAT_SIZE; i++) {
             if (p[i].is_empty)
                 continue;
-            SD_LOG::append("[%d/%d:%s]", p[i].addr, p[i].func, p[i].str.c_str());
-            SD_LOG::append("[E:%02d/%02d/%zu]", p[i].errs_uncorrected, p[i].errs_total, (p[i].len / 5) * 32);
+            SD_LOG::appendBuffer("[%d/%d:%s]", p[i].addr, p[i].func, p[i].str.c_str());
+            SD_LOG::appendBuffer("[E:%02d/%02d/%zu]", p[i].errs_uncorrected, p[i].errs_total, (p[i].len / 5) * 32);
         }
-        SD_LOG::append("\n");
+        SD_LOG::appendBuffer("\n");
     }
+    SD_LOG::sendBufferLOG();
 }
 void printDataTelnet(PagerClient::pocsag_data *p,const struct lbj_data& l,const struct rx_info& r){
     /* [LBJ] 方向: 下行  车次: 12345  速度: 122km/h  公里标: 1255.5km [R:-85.6 dBm/F:123.54Hz]
@@ -835,72 +836,74 @@ void printDataTelnet(PagerClient::pocsag_data *p,const struct lbj_data& l,const 
 
 // TODO: Every append sentence costs 20 ms, now two functions costs 200+ in total, try reduce time consumption.
 // Ether by reducing amount of append calling or simplify append function.
+// 可以考虑建立一个BUFFER，先都写进这个buffer然后一次写入sd卡
 
-void appendDataCSV(SD_LOG sd, PagerClient::pocsag_data *p, const struct lbj_data& l, const struct rx_info& r){
+void appendDataCSV(PagerClient::pocsag_data *p, const struct lbj_data &l, const struct rx_info &r) {
     // 电压,系统时间,日期,时间,LBJ时间,方向,级别,车次,速度,公里标,机车编号,线路,纬度,经度,HEX,RSSI,FER,原始数据,错误,错误率
     // LBJ时间,方向,级别,车次,速度,公里标,机车编号,线路,纬度,经度,HEX,RSSI,FER,原始数据,错误,错误率
     switch (l.type) {
         case 0:
         {
             if (l.direction == FUNCTION_UP)
-                SD_LOG::appendCSV(",上行,");
+                SD_LOG::appendBufferCSV(",上行,");
             else if (l.direction == FUNCTION_DOWN)
-                SD_LOG::appendCSV(",下行,");
+                SD_LOG::appendBufferCSV(",下行,");
             else
-                SD_LOG::appendCSV(",%d,",l.direction);
-            SD_LOG::appendCSV(",%s,%s,%s,,,,,,",l.train,l.speed,l.position);
+                SD_LOG::appendBufferCSV(",%d,",l.direction);
+            SD_LOG::appendBufferCSV(",%s,%s,%s,,,,,,",l.train,l.speed,l.position);
             break;
         }
         case 1:
         {
             if (l.direction == FUNCTION_UP)
-                SD_LOG::appendCSV(",上行,");
+                SD_LOG::appendBufferCSV(",上行,");
             else if (l.direction == FUNCTION_DOWN)
-                SD_LOG::appendCSV(",下行,");
+                SD_LOG::appendBufferCSV(",下行,");
             else
-                SD_LOG::appendCSV(",%d,",l.direction);
-            SD_LOG::appendCSV("%s,%s,%s,%s,%s,%s,",l.lbj_class,l.train,l.speed,l.position,l.loco,l.route_utf8);
+                SD_LOG::appendBufferCSV(",%d,",l.direction);
+            SD_LOG::appendBufferCSV("%s,%s,%s,%s,%s,%s,",l.lbj_class,l.train,l.speed,l.position,l.loco,l.route_utf8);
             if (l.pos_lat_deg[1] && l.pos_lat_min[1])
-                SD_LOG::appendCSV("%s°%2s′,", l.pos_lat_deg, l.pos_lat_min);
+                SD_LOG::appendBufferCSV("%s°%2s′,", l.pos_lat_deg, l.pos_lat_min);
             else
-                SD_LOG::appendCSV("%s,",l.pos_lat);
+                SD_LOG::appendBufferCSV("%s,",l.pos_lat);
             if (l.pos_lon_deg[1] && l.pos_lon_min[1])
-                SD_LOG::appendCSV("%s°%2s′,",l.pos_lon_deg,l.pos_lon_min);
+                SD_LOG::appendBufferCSV("%s°%2s′,",l.pos_lon_deg,l.pos_lon_min);
             else
-                SD_LOG::appendCSV("%s,",l.pos_lon);
-            SD_LOG::appendCSV("\"%s\",%3.1f,%4.2f,",l.info2_hex.c_str(),r.rssi, r.fer);
-            SD_LOG::appendCSV("\"");
+                SD_LOG::appendBufferCSV("%s,",l.pos_lon);
+            SD_LOG::appendBufferCSV("\"%s\",%3.1f,%4.2f,",l.info2_hex.c_str(),r.rssi, r.fer);
+            SD_LOG::appendBufferCSV("\"");
             uint8_t err_ttl=0,err_un=0,len=0;
             for (size_t i = 0; i < POCDAT_SIZE; i++) {
                 if (p[i].is_empty)
                     continue;
-                SD_LOG::appendCSV("[%d/%d:%s][E:%02d/%02d/%zu]", p[i].addr, p[i].func, p[i].str.c_str(),
+                SD_LOG::appendBufferCSV("[%d/%d:%s][E:%02d/%02d/%zu]", p[i].addr, p[i].func, p[i].str.c_str(),
                              p[i].errs_uncorrected, p[i].errs_total, (p[i].len / 5) * 32);
                 err_ttl += p[i].errs_total;err_un += p[i].errs_uncorrected;len += (p[i].len / 5) * 32;
             }
-            SD_LOG::appendCSV("\",");
-            SD_LOG::appendCSV("%d/%d,%.2f%%\n",err_un,err_ttl,((float)err_ttl/(float)len) * 100);
+            SD_LOG::appendBufferCSV("\",");
+            SD_LOG::appendBufferCSV("%d/%d,%.2f%%\n",err_un,err_ttl,((float)err_ttl/(float)len) * 100);
             break;
         }
         case 2:
         {
-            SD_LOG::appendCSV("%s,,,,,,,,,,,",l.time); //time,dir,cls,num,spd,pos,reg,rte,lat,lon,hex,
+            SD_LOG::appendBufferCSV("%s,,,,,,,,,,,",l.time); //time,dir,cls,num,spd,pos,reg,rte,lat,lon,hex,
             break;
         }
     }
     if (l.type != 1 && !p[0].is_empty) {
-        SD_LOG::appendCSV("%3.1f,%5.2f,\"", r.rssi, r.fer);
+        SD_LOG::appendBufferCSV("%3.1f,%5.2f,\"", r.rssi, r.fer);
         uint8_t err_un = 0,err_ttl = 0,len = 0;
         for (size_t i = 0; i < POCDAT_SIZE; i++) {
             if (p[i].is_empty)
                 continue;
-            SD_LOG::appendCSV("[%d/%d:%s][E:%02d/%02d/%zu]", p[i].addr, p[i].func, p[i].str.c_str(),
+            SD_LOG::appendBufferCSV("[%d/%d:%s][E:%02d/%02d/%zu]", p[i].addr, p[i].func, p[i].str.c_str(),
                          p[i].errs_uncorrected, p[i].errs_total, (p[i].len / 5) * 32);
             err_un += p[i].errs_uncorrected;err_ttl += p[i].errs_total;len += (p[i].len / 5) * 32;
         }
-        SD_LOG::appendCSV("\",");
-        SD_LOG::appendCSV("%d/%d,%.2f%%\n",err_un,err_ttl,((float)err_ttl/(float)len) * 100);
+        SD_LOG::appendBufferCSV("\",");
+        SD_LOG::appendBufferCSV("%d/%d,%.2f%%\n",err_un,err_ttl,((float)err_ttl/(float)len) * 100);
     }
+    SD_LOG::sendBufferCSV();
 }
 
 

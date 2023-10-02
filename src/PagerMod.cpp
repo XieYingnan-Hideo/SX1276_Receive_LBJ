@@ -268,7 +268,7 @@ int16_t PagerClient::readDataMSA(struct PagerClient::pocsag_data *p, size_t len)
 #if defined(RADIOLIB_STATIC_ONLY)
             uint8_t data[RADIOLIB_STATIC_ARRAY_SIZE + 1];
 #else
-            uint8_t *data = new uint8_t[length + 1];
+            auto *data = new uint8_t[length + 1];
             if (!data) {
                 return (RADIOLIB_ERR_MEMORY_ALLOCATION_FAILED);
             }

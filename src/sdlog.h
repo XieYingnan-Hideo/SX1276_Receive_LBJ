@@ -30,6 +30,14 @@ public:
 
     static void appendCSV(const char *format, ...);
 
+    static void appendBuffer(const char  *format, ...);
+
+    static void sendBufferLOG();
+
+    static void appendBufferCSV(const char *format, ...);
+
+    static void sendBufferCSV();
+
     static void printTel(int chars, ESPTelnet &tel);
 
     static File logFile(char op);
@@ -52,6 +60,8 @@ private:
     static String log_path;
     static String csv_path;
     static fs::FS *filesys;
+    static String large_buffer;
+    static String large_buffer_csv;
     static File log;
     static File csv;
     static int log_count; // Actual file count - 1. =0 default

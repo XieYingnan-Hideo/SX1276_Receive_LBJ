@@ -60,19 +60,19 @@
   \brief Client for Pager communication.
 */
 class PagerClient {
-  public:
+public:
     /*!
       \brief Default constructor.
       \param phy Pointer to the wireless module providing PhysicalLayer communication.
     */
-    explicit PagerClient(PhysicalLayer* phy);
+    explicit PagerClient(PhysicalLayer *phy);
 
     struct pocsag_data {
-        String str={};
+        String str = {};
         uint8_t *data = nullptr;
-        size_t len=0;
-        uint32_t addr=0;
-        uint32_t func=5;
+        size_t len = 0;
+        uint32_t addr = 0;
+        uint32_t func = 5;
         uint16_t errs_total = 0;
         uint16_t errs_uncorrected = 0;
         bool is_empty = true;
@@ -97,7 +97,8 @@ class PagerClient {
     */
     int16_t sendTone(uint32_t addr);
 
-    #if defined(RADIOLIB_BUILD_ARDUINO)
+#if defined(RADIOLIB_BUILD_ARDUINO)
+
     /*!
       \brief Arduino String transmit method.
       \param str Address of Arduino string that will be transmitted.
@@ -106,8 +107,10 @@ class PagerClient {
       \param function bits (NUMERIC, TONE, ACTIVATION, ALPHANUMERIC). Allowed values 0 to 3. Defaults to auto select by specified encoding
       \returns \ref status_codes
     */
-    int16_t transmit(String& str, uint32_t addr, uint8_t encoding = RADIOLIB_PAGER_BCD, uint8_t function = RADIOLIB_PAGER_FUNC_AUTO);
-    #endif
+    int16_t transmit(String &str, uint32_t addr, uint8_t encoding = RADIOLIB_PAGER_BCD,
+                     uint8_t function = RADIOLIB_PAGER_FUNC_AUTO);
+
+#endif
 
     /*!
       \brief C-string transmit method.
@@ -117,7 +120,8 @@ class PagerClient {
       \param function bits (NUMERIC, TONE, ACTIVATION, ALPHANUMERIC). Allowed values 0 to 3. Defaults to auto select by specified encoding
       \returns \ref status_codes
     */
-    int16_t transmit(const char* str, uint32_t addr, uint8_t encoding = RADIOLIB_PAGER_BCD, uint8_t function = RADIOLIB_PAGER_FUNC_AUTO);
+    int16_t transmit(const char *str, uint32_t addr, uint8_t encoding = RADIOLIB_PAGER_BCD,
+                     uint8_t function = RADIOLIB_PAGER_FUNC_AUTO);
 
     /*!
       \brief Binary transmit method. Will transmit arbitrary binary data.
@@ -128,9 +132,11 @@ class PagerClient {
       \param function bits (NUMERIC, TONE, ACTIVATION, ALPHANUMERIC). Allowed values 0 to 3. Defaults to auto select by specified encoding
       \returns \ref status_codes
     */
-    int16_t transmit(uint8_t* data, size_t len, uint32_t addr, uint8_t encoding = RADIOLIB_PAGER_BCD, uint8_t function = RADIOLIB_PAGER_FUNC_AUTO);
+    int16_t transmit(uint8_t *data, size_t len, uint32_t addr, uint8_t encoding = RADIOLIB_PAGER_BCD,
+                     uint8_t function = RADIOLIB_PAGER_FUNC_AUTO);
 
-    #if !defined(RADIOLIB_EXCLUDE_DIRECT_RECEIVE)
+#if !defined(RADIOLIB_EXCLUDE_DIRECT_RECEIVE)
+
     /*!
       \brief Start reception of POCSAG packets.
       \param pin Pin to receive digital data on (e.g., DIO2 for SX127x).
@@ -149,7 +155,8 @@ class PagerClient {
     */
     size_t available();
 
-    #if defined(RADIOLIB_BUILD_ARDUINO)
+#if defined(RADIOLIB_BUILD_ARDUINO)
+
     /*!
       \brief Reads data that was received after calling startReceive method.
       \param str Address of Arduino String to save the received data.
@@ -159,11 +166,16 @@ class PagerClient {
       Set to NULL to not retrieve address.
       \returns \ref status_codes
     */
-    int16_t readData(String& str, size_t len = 0, uint32_t* addr = NULL);
-    int16_t readDataMod(String& str, size_t len = 0, uint32_t* addr = NULL,  uint32_t* func = NULL, bool* add = NULL, size_t* clen = NULL);
+    int16_t readData(String &str, size_t len = 0, uint32_t *addr = NULL);
+
+    int16_t readDataMod(String &str, size_t len = 0, uint32_t *addr = NULL, uint32_t *func = NULL, bool *add = NULL,
+                        size_t *clen = NULL);
+
     int16_t readDataMS(struct PagerClient::pocsag_data *p, size_t len);
+
     int16_t readDataMSA(struct PagerClient::pocsag_data *p, size_t len);
-    #endif
+
+#endif
 
     /*!
       \brief Reads data that was received after calling startReceive method.
@@ -175,20 +187,24 @@ class PagerClient {
       Set to NULL to not retrieve address.
       \returns \ref status_codes
     */
-    int16_t readData(uint8_t* data, size_t* len, uint32_t* addr = NULL);
-    int16_t readDataM(uint8_t* data, size_t* len, uint32_t* addr = NULL, uint32_t* func = NULL, bool* add = NULL, size_t* clen = NULL);
-    int16_t readDataMA(uint8_t *data, size_t *len, uint32_t *addr, uint32_t *func, uint8_t *framePos,
-                                    uint32_t *addr_next, bool *is_empty, bool *complete, uint16_t *errs_total,
-                                    uint16_t *errs_uncorrected);
-    int16_t readDataS(struct PagerClient::pocsag_data *p);
-#endif
+    int16_t readData(uint8_t *data, size_t *len, uint32_t *addr = NULL);
 
+    int16_t readDataM(uint8_t *data, size_t *len, uint32_t *addr = NULL, uint32_t *func = NULL, bool *add = NULL,
+                      size_t *clen = NULL);
+
+    int16_t readDataMA(uint8_t *data, size_t *len, uint32_t *addr, uint32_t *func, uint8_t *framePos,
+                       uint32_t *addr_next, bool *is_empty, bool *complete, uint16_t *errs_total,
+                       uint16_t *errs_uncorrected);
+
+    int16_t readDataS(struct PagerClient::pocsag_data *p);
+
+#endif
 
 
 #if !defined(RADIOLIB_GODMODE)
-  private:
+private:
 #endif
-    PhysicalLayer* phyLayer;
+    PhysicalLayer *phyLayer;
 
     float baseFreq;
     float dataRate;
@@ -200,14 +216,18 @@ class PagerClient {
     uint32_t filterMask;
     bool inv = false;
 
-    void write(uint32_t* data, size_t len);
+    void write(uint32_t *data, size_t len);
+
     void write(uint32_t codeWord);
 
 #if !defined(RADIOLIB_EXCLUDE_DIRECT_RECEIVE)
+
     uint32_t read();
+
 #endif
 
     uint8_t encodeBCD(char c);
+
     char decodeBCD(uint8_t b);
 };
 

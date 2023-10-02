@@ -23,6 +23,8 @@ String SD_LOG::csv_path;
 bool SD_LOG::is_startline = true;
 bool SD_LOG::is_startline_csv = true;
 bool SD_LOG::size_checked = false;
+String SD_LOG::large_buffer;
+String SD_LOG::large_buffer_csv;
 
 SD_LOG::SD_LOG(fs::FS &fs) {
     filesys = &fs;
@@ -237,7 +239,102 @@ void SD_LOG::append(const char *format, ...) {
         is_startline = true;
     log.print(buffer);
     log.flush();
-    Serial.printf("[D] Using log %s \n", log_path.c_str());
+//    Serial.printf("[D] Using log %s \n", log_path.c_str());
+}
+
+void SD_LOG::appendBuffer(const char *format, ...) {
+    if (!sd_log)
+        return;
+    char buffer[256];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    if (is_startline) {
+        char *time_buffer = new char[128];
+        if (getLocalTime(&timein,0)) {
+            sprintf(time_buffer,"%d-%02d-%02d %02d:%02d:%02d > ", timein.tm_year + 1900, timein.tm_mon + 1,
+                    timein.tm_mday, timein.tm_hour, timein.tm_min, timein.tm_sec);
+            large_buffer += time_buffer;
+        } else {
+            sprintf(time_buffer,"[%6lu.%03lu] > ", millis() / 1000, millis() % 1000);
+            large_buffer += time_buffer;
+        }
+        delete[] time_buffer;
+        is_startline = false;
+    }
+    if (nullptr != strchr(format, '\n')) /* detect end of line in stream */
+        is_startline = true;
+    large_buffer += buffer;
+}
+
+void SD_LOG::sendBufferLOG() {
+    if (!sd_log)
+        return;
+    if (!filesys->exists(log_path)) {
+        Serial.println("[SDLOG] Log file unavailable!");
+        sd_log = false;
+        SD.end();
+        return;
+    }
+    if (log.size() >= MAX_LOG_SIZE && !size_checked) {
+        log.close();
+        begin(log_directory);
+    }
+    if (log.size() >= MAX_LOG_SIZE && !size_checked) {
+        log.close();
+        begin(log_directory);
+    }
+    log.print(large_buffer);
+    log.flush();
+    large_buffer = "";
+}
+
+void SD_LOG::appendBufferCSV(const char *format, ...) {
+    if (!sd_csv)
+        return;
+    char buffer[256];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    if (is_startline_csv) {
+        char *headers = new char[128];
+        sprintf(headers,"%1.2f,%lu,", battery.readVoltage() * 2, millis());
+        large_buffer_csv += headers;
+        if (getLocalTime(&timein, 0)) {
+            sprintf(headers,"%d-%02d-%02d,%02d:%02d:%02d,", timein.tm_year + 1900, timein.tm_mon + 1,
+                       timein.tm_mday, timein.tm_hour, timein.tm_min, timein.tm_sec);
+            large_buffer_csv += headers;
+        } else {
+            sprintf(headers,"null,null,");
+            large_buffer_csv += headers;
+        }
+        delete[] headers;
+        is_startline_csv = false;
+    }
+    if (nullptr != strchr(format, '\n')) /* detect end of line in stream */
+        is_startline_csv = true;
+    large_buffer_csv += buffer;
+}
+
+void SD_LOG::sendBufferCSV() {
+    if (!sd_csv) {
+        return;
+    }
+    if (!filesys->exists(csv_path)) {
+        Serial.println("[SDLOG] CSV file unavailable!");
+        sd_csv = false;
+        SD.end();
+        return;
+    }
+    if (csv.size() >= MAX_CSV_SIZE && !size_checked) {
+        csv.close();
+        beginCSV(csv_directory);
+    }
+    csv.print(large_buffer_csv);
+    csv.flush();
+    large_buffer_csv = "";
 }
 
 File SD_LOG::logFile(char op) {

@@ -30,9 +30,6 @@
 #include "sdlog.h"
 #include "customfont.h"
 
-// definitions
-
-
 // variables
 SX1276 radio = new Module(RADIO_CS_PIN, RADIO_DIO0_PIN, RADIO_RST_PIN, RADIO_DIO1_PIN);
 // receiving packets requires connection
@@ -62,6 +59,7 @@ struct rx_info rxInfo;
 // functions
 
 #ifdef HAS_DISPLAY
+
 void pword(const char *msg, int xloc, int yloc) {
     int dspW = u8g2->getDisplayWidth();
     int strW = 0;
@@ -87,184 +85,187 @@ void pword(const char *msg, int xloc, int yloc) {
         xloc += u8g2->drawStr(xloc, yloc, glyph);
     }
 }
-void showInitComp(){
+
+void showInitComp() {
     u8g2->clearBuffer();
     u8g2->setFont(u8g2_font_squeezed_b7_tr);
     // bottom (0,56,128,8)
     String ipa = WiFi.localIP().toString();
-    u8g2->drawStr(0,64,ipa.c_str());
-    if(have_sd && WiFiClass::status() == WL_CONNECTED)
-        u8g2->drawStr(83,64,"D");
+    u8g2->drawStr(0, 64, ipa.c_str());
+    if (have_sd && WiFiClass::status() == WL_CONNECTED)
+        u8g2->drawStr(83, 64, "D");
     else if (have_sd)
-        u8g2->drawStr(83,64,"L");
+        u8g2->drawStr(83, 64, "L");
     else if (WiFiClass::status() == WL_CONNECTED)
-        u8g2->drawStr(83,64,"N");
+        u8g2->drawStr(83, 64, "N");
     char buffer[32];
-    sprintf(buffer,"%2d",ets_get_cpu_frequency()/10);
-    u8g2->drawStr(91,64,buffer);
-    sprintf(buffer,"%1.2f",battery.readVoltage()*2);
-    u8g2->drawStr(105,64,buffer);
+    sprintf(buffer, "%2d", ets_get_cpu_frequency() / 10);
+    u8g2->drawStr(91, 64, buffer);
+    sprintf(buffer, "%1.2f", battery.readVoltage() * 2);
+    u8g2->drawStr(105, 64, buffer);
     // top (0,0,128,8)
-    if (!getLocalTime(&time_info,0))
-        u8g2->drawStr(0,7,"NO SNTP");
-    else
-    {
-        sprintf(buffer,"%d-%02d-%02d %02d:%02d",time_info.tm_year+1900,time_info.tm_mon+1, time_info.tm_mday,
-                time_info.tm_hour , time_info.tm_min);
-        u8g2->drawStr(0,7,buffer);
+    if (!getLocalTime(&time_info, 0))
+        u8g2->drawStr(0, 7, "NO SNTP");
+    else {
+        sprintf(buffer, "%d-%02d-%02d %02d:%02d", time_info.tm_year + 1900, time_info.tm_mon + 1, time_info.tm_mday,
+                time_info.tm_hour, time_info.tm_min);
+        u8g2->drawStr(0, 7, buffer);
     }
     u8g2->sendBuffer();
 }
-void updateInfo(){
+
+void updateInfo() {
     // update top
     char buffer[32];
     u8g2->setDrawColor(0);
     u8g2->setFont(u8g2_font_squeezed_b7_tr);
-    u8g2->drawBox(0,0,97,8);
+    u8g2->drawBox(0, 0, 97, 8);
     u8g2->setDrawColor(1);
-    if (!getLocalTime(&time_info,0))
-        u8g2->drawStr(0,7,"NO SNTP");
-    else
-    {
-        sprintf(buffer,"%d-%02d-%02d %02d:%02d",time_info.tm_year+1900,time_info.tm_mon+1, time_info.tm_mday,
-                time_info.tm_hour , time_info.tm_min);
-        u8g2->drawStr(0,7,buffer);
+    if (!getLocalTime(&time_info, 0))
+        u8g2->drawStr(0, 7, "NO SNTP");
+    else {
+        sprintf(buffer, "%d-%02d-%02d %02d:%02d", time_info.tm_year + 1900, time_info.tm_mon + 1, time_info.tm_mday,
+                time_info.tm_hour, time_info.tm_min);
+        u8g2->drawStr(0, 7, buffer);
     }
     // update bottom
     u8g2->setDrawColor(0);
-    u8g2->drawBox(0,56,128,8);
+    u8g2->drawBox(0, 56, 128, 8);
     u8g2->setDrawColor(1);
-    String ipa = WiFi.localIP().toString();
-    u8g2->drawStr(0,64,ipa.c_str());
-    if(have_sd && WiFiClass::status() == WL_CONNECTED)
-        u8g2->drawStr(83,64,"D");
+    if (!no_wifi) {
+        String ipa = WiFi.localIP().toString();
+        u8g2->drawStr(0, 64, ipa.c_str());
+    } else
+        u8g2->drawStr(0, 64, "WIFI OFF");
+    if (have_sd && WiFiClass::status() == WL_CONNECTED)
+        u8g2->drawStr(83, 64, "D");
     else if (have_sd)
-        u8g2->drawStr(83,64,"L");
+        u8g2->drawStr(83, 64, "L");
     else if (WiFiClass::status() == WL_CONNECTED)
-        u8g2->drawStr(83,64,"N");
-    sprintf(buffer,"%2d",ets_get_cpu_frequency()/10);
-    u8g2->drawStr(91,64,buffer);
-    voltage = battery.readVoltage()*2;
-    sprintf(buffer,"%1.2f",voltage); // todo: Implement average voltage reading.
-    if (voltage < 3.15 && !low_volt_warned)
-    {
-        Serial.printf("Warning! Low Voltage detected, %1.2fV\n",voltage);
-        SD_LOG::append("低压警告，电池电压%1.2fV\n",voltage);
+        u8g2->drawStr(83, 64, "N");
+    sprintf(buffer, "%2d", ets_get_cpu_frequency() / 10);
+    u8g2->drawStr(91, 64, buffer);
+    voltage = battery.readVoltage() * 2;
+    sprintf(buffer, "%1.2f", voltage); // todo: Implement average voltage reading.
+    if (voltage < 3.15 && !low_volt_warned) {
+        Serial.printf("Warning! Low Voltage detected, %1.2fV\n", voltage);
+        SD_LOG::append("低压警告，电池电压%1.2fV\n", voltage);
         low_volt_warned = true;
     }
-    u8g2->drawStr(105,64,buffer);
+    u8g2->drawStr(105, 64, buffer);
     u8g2->sendBuffer();
 }
-void showLBJ0(const struct lbj_data& l){
+
+void showLBJ0(const struct lbj_data &l) {
     // box y 9->55
     char buffer[128];
     u8g2->setDrawColor(0);
-    u8g2->drawBox(0,8,128,48);
+    u8g2->drawBox(0, 8, 128, 48);
     u8g2->setDrawColor(1);
     u8g2->setFont(u8g2_font_wqy15_t_custom);
-    if (l.direction == FUNCTION_UP){
-        sprintf(buffer,"车  次 %s 上行",l.train);
+    if (l.direction == FUNCTION_UP) {
+        sprintf(buffer, "车  次 %s 上行", l.train);
     } else if (l.direction == FUNCTION_DOWN)
-        sprintf(buffer,"车  次 %s 下行",l.train);
+        sprintf(buffer, "车  次 %s 下行", l.train);
     else
-        sprintf(buffer,"车  次 %s %d",l.train,l.direction);
-    u8g2->drawUTF8(0,21,buffer);
-    sprintf(buffer,"速  度  %s KM/H",l.speed);
-    u8g2->drawUTF8(0,37,buffer);
-    sprintf(buffer,"公里标 %s KM",l.position);
-    u8g2->drawUTF8(0,53,buffer);
+        sprintf(buffer, "车  次 %s %d", l.train, l.direction);
+    u8g2->drawUTF8(0, 21, buffer);
+    sprintf(buffer, "速  度  %s KM/H", l.speed);
+    u8g2->drawUTF8(0, 37, buffer);
+    sprintf(buffer, "公里标 %s KM", l.position);
+    u8g2->drawUTF8(0, 53, buffer);
     // draw RSSI
     u8g2->setDrawColor(0);
-    u8g2->drawBox(98,0,30,8);
+    u8g2->drawBox(98, 0, 30, 8);
     u8g2->setDrawColor(1);
     u8g2->setFont(u8g2_font_squeezed_b7_tr);
-    sprintf(buffer,"%3.1f",rxInfo.rssi);
-    u8g2->drawStr(99,7,buffer);
+    sprintf(buffer, "%3.1f", rxInfo.rssi);
+    u8g2->drawStr(99, 7, buffer);
     u8g2->sendBuffer();
 }
-void showLBJ1(const struct lbj_data& l){
+
+void showLBJ1(const struct lbj_data &l) {
     char buffer[128];
     u8g2->setDrawColor(0);
-    u8g2->drawBox(0,8,128,48);
+    u8g2->drawBox(0, 8, 128, 48);
     u8g2->setDrawColor(1);
     u8g2->setFont(u8g2_font_wqy12_t_gb2312a);
     // line 1
-    sprintf(buffer,"车:%s%s",l.lbj_class,l.train);
-    u8g2->drawUTF8(0,19,buffer);
-    sprintf(buffer,"速:%sKM/H",l.speed);
-    u8g2->drawUTF8(68,19,buffer);
+    sprintf(buffer, "车:%s%s", l.lbj_class, l.train);
+    u8g2->drawUTF8(0, 19, buffer);
+    sprintf(buffer, "速:%sKM/H", l.speed);
+    u8g2->drawUTF8(68, 19, buffer);
     // line 2
-    sprintf(buffer,"线:%s",l.route_utf8);
-    u8g2->drawUTF8(0,31,buffer);
-    u8g2->drawBox(67,21,13,12);
+    sprintf(buffer, "线:%s", l.route_utf8);
+    u8g2->drawUTF8(0, 31, buffer);
+    u8g2->drawBox(67, 21, 13, 12);
     u8g2->setDrawColor(0);
     if (l.direction == FUNCTION_UP)
-        u8g2->drawUTF8(68,31,"上");
+        u8g2->drawUTF8(68, 31, "上");
     else if (l.direction == FUNCTION_DOWN)
-        u8g2->drawUTF8(68,31,"下");
-    else{
-        printf(buffer,"%d",l.direction);
-        u8g2->drawUTF8(68,31,buffer);
+        u8g2->drawUTF8(68, 31, "下");
+    else {
+        printf(buffer, "%d", l.direction);
+        u8g2->drawUTF8(68, 31, buffer);
     }
     u8g2->setDrawColor(1);
-    sprintf(buffer,"%sK",l.position);
-    u8g2->drawUTF8(86,31,buffer);
+    sprintf(buffer, "%sK", l.position);
+    u8g2->drawUTF8(86, 31, buffer);
     // line 3
-    sprintf(buffer,"号:%s",l.loco);
-    u8g2->drawUTF8(0,43,buffer);
+    sprintf(buffer, "号:%s", l.loco);
+    u8g2->drawUTF8(0, 43, buffer);
     if (l.loco_type.length())
-        u8g2->drawUTF8(72,43,l.loco_type.c_str());
+        u8g2->drawUTF8(72, 43, l.loco_type.c_str());
     // line 4
     String pos;
-    if (l.pos_lat_deg[1]&&l.pos_lat_min[1])
-    {
-        sprintf(buffer,"%s°%s'",l.pos_lat_deg,l.pos_lat_min);
+    if (l.pos_lat_deg[1] && l.pos_lat_min[1]) {
+        sprintf(buffer, "%s°%s'", l.pos_lat_deg, l.pos_lat_min);
         pos += String(buffer);
     } else {
-        sprintf(buffer,"%s ",l.pos_lat);
+        sprintf(buffer, "%s ", l.pos_lat);
         pos += String(buffer);
     }
-    if (l.pos_lon_deg[1]&&l.pos_lon_min[1])
-    {
-        sprintf(buffer,"%s°%s'",l.pos_lon_deg,l.pos_lon_min);
+    if (l.pos_lon_deg[1] && l.pos_lon_min[1]) {
+        sprintf(buffer, "%s°%s'", l.pos_lon_deg, l.pos_lon_min);
         pos += String(buffer);
     } else {
-        sprintf(buffer,"%s ",l.pos_lon);
+        sprintf(buffer, "%s ", l.pos_lon);
         pos += String(buffer);
     }
 //    sprintf(buffer,"%s°%s'%s°%s'",l.pos_lat_deg,l.pos_lat_min,l.pos_lon_deg,l.pos_lon_min);
-    u8g2->drawUTF8(0,54,pos.c_str());
+    u8g2->drawUTF8(0, 54, pos.c_str());
     // draw RSSI
     u8g2->setDrawColor(0);
-    u8g2->drawBox(98,0,30,8);
+    u8g2->drawBox(98, 0, 30, 8);
     u8g2->setDrawColor(1);
     u8g2->setFont(u8g2_font_squeezed_b7_tr);
-    sprintf(buffer,"%3.1f",rxInfo.rssi);
-    u8g2->drawStr(99,7,buffer);
+    sprintf(buffer, "%3.1f", rxInfo.rssi);
+    u8g2->drawStr(99, 7, buffer);
     u8g2->sendBuffer();
 }
-void showLBJ2(const struct lbj_data& l){
+
+void showLBJ2(const struct lbj_data &l) {
     char buffer[128];
     u8g2->setDrawColor(0);
-    u8g2->drawBox(0,8,128,48);
+    u8g2->drawBox(0, 8, 128, 48);
     u8g2->setDrawColor(1);
     u8g2->setFont(u8g2_font_wqy15_t_custom);
-    sprintf(buffer,"当前时间 %s ",l.time);
-    u8g2->drawUTF8(0,21,buffer);
+    sprintf(buffer, "当前时间 %s ", l.time);
+    u8g2->drawUTF8(0, 21, buffer);
     // draw RSSI
     u8g2->setDrawColor(0);
-    u8g2->drawBox(98,0,30,8);
+    u8g2->drawBox(98, 0, 30, 8);
     u8g2->setDrawColor(1);
     u8g2->setFont(u8g2_font_squeezed_b7_tr);
-    sprintf(buffer,"%3.1f",rxInfo.rssi);
-    u8g2->drawStr(99,7,buffer);
+    sprintf(buffer, "%3.1f", rxInfo.rssi);
+    u8g2->drawStr(99, 7, buffer);
     u8g2->sendBuffer();
 }
 
 
 #endif
 
-void dualPrintf(bool time_stamp, const char* format, ...) { // Generated by ChatGPT.
+void dualPrintf(bool time_stamp, const char *format, ...) { // Generated by ChatGPT.
     char buffer[256]; // 创建一个足够大的缓冲区来容纳格式化后的字符串
     va_list args;
     va_start(args, format);
@@ -276,42 +277,51 @@ void dualPrintf(bool time_stamp, const char* format, ...) { // Generated by Chat
 
     // 输出到 Telnet
     if (telnet.online) { // code from Multimon-NG unixinput.c 还得是multimon-ng，chatgpt写了四五个版本都没解决。
-        if (is_startline){
+        if (is_startline) {
             telnet.print("\r> ");
-                if (time_stamp && getLocalTime(&time_info,0))
-                    telnet.printf("\r%d-%02d-%02d %02d:%02d:%02d > ", time_info.tm_year+1900, time_info.tm_mon+1,
-                                  time_info.tm_mday,time_info.tm_hour, time_info.tm_min, time_info.tm_sec);
+            if (time_stamp && getLocalTime(&time_info, 0))
+                telnet.printf("\r%d-%02d-%02d %02d:%02d:%02d > ", time_info.tm_year + 1900, time_info.tm_mon + 1,
+                              time_info.tm_mday, time_info.tm_hour, time_info.tm_min, time_info.tm_sec);
             is_startline = false;
         }
         telnet.print(buffer);
-        if (nullptr != strchr(buffer,'\n')) {
+        if (nullptr != strchr(buffer, '\n')) {
             is_startline = true;
             telnet.print("\r< ");
         }
     }
 }
 
-void dualPrint(const char* fmt){
+void dualPrint(const char *fmt) {
     Serial.print(fmt);
     telnet.print(fmt);
 }
-void dualPrintln(const char* fmt){
+
+void dualPrintln(const char *fmt) {
     Serial.println(fmt);
     telnet.println(fmt);
 }
 
-void LBJTEST(){
+void LBJTEST() {
     PagerClient::pocsag_data pocdat[16];
-    pocdat[0].str = "37012";pocdat[0].addr = 1234000;pocdat[0].func = 1;pocdat[0].is_empty = false;pocdat[0].len = 15;
-    pocdat[1].str = "20202350018530U)*9UU*6 (-(202011719040139058291000";pocdat[1].addr = 1234002;pocdat[1].func = 1;pocdat[1].is_empty = false;pocdat[1].len = 0;
+    pocdat[0].str = "37012";
+    pocdat[0].addr = 1234000;
+    pocdat[0].func = 1;
+    pocdat[0].is_empty = false;
+    pocdat[0].len = 15;
+    pocdat[1].str = "20202350018530U)*9UU*6 (-(202011719040139058291000";
+    pocdat[1].addr = 1234002;
+    pocdat[1].func = 1;
+    pocdat[1].is_empty = false;
+    pocdat[1].len = 0;
 //    Serial.println("[LBJ] 测试输出 机车编号 位置 XX°XX′XX″ ");
 //    dualPrintf(false,"[LBJ] 测试输出 机车编号 位置 XX°XX′XX″ \n");
     struct lbj_data lbj;
 
-    readDataLBJ(pocdat,&lbj);
-    printDataSerial(pocdat,lbj,rxInfo);
+    readDataLBJ(pocdat, &lbj);
+    printDataSerial(pocdat, lbj, rxInfo);
 //    appendDataLog(sd1,pocdat,lbj,rxInfo);
-    printDataTelnet(pocdat,lbj,rxInfo);
+    printDataTelnet(pocdat, lbj, rxInfo);
     rxInfo.rssi = 0;
     rxInfo.fer = 0;
 
@@ -319,35 +329,38 @@ void LBJTEST(){
 
 // SETUP
 
-void setup() {\
+void setup() {
     timer2 = millis();
     initBoard();
     delay(150);
 
-    if(have_sd){
+    if (have_sd) {
         SD_LOG::begin("/LOGTEST");
         SD_LOG::beginCSV("/CSVTEST");
-        SD_LOG::append("电池电压 %1.2fV\n",battery.readVoltage()*2);
+        SD_LOG::append("电池电压 %1.2fV\n", battery.readVoltage() * 2);
     }
     // Sync time.
 
-    sntp_set_time_sync_notification_cb( timeAvailable );
+    sntp_set_time_sync_notification_cb(timeAvailable);
     sntp_servermode_dhcp(1);
     configTzTime(time_zone, ntpServer1, ntpServer2);
     showInitComp();
     u8g2->setFont(u8g2_font_wqy12_t_gb2312a);
-    u8g2->setCursor(0,52);
+    u8g2->setCursor(0, 52);
     u8g2->println("Initializing...");
     u8g2->sendBuffer();
 
 
     // initialize wireless network.
-    Serial.printf("Connecting to %s ",WIFI_SSID);
-    connectWiFi(WIFI_SSID,WIFI_PASSWORD,1); // usually max_tries = 25.
+    Serial.printf("Connecting to %s ", WIFI_SSID);
+    connectWiFi(WIFI_SSID, WIFI_PASSWORD, 1); // usually max_tries = 25.
     if (isConnected()) {
         ip = WiFi.localIP();
         Serial.println();
-        Serial.print("[Telnet] "); Serial.print(ip); Serial.print(":"); Serial.println(port);
+        Serial.print("[Telnet] ");
+        Serial.print(ip);
+        Serial.print(":");
+        Serial.println(port);
         setupTelnet(); // todo: find another library / modify the code to support multiple client connection.
     } else {
         Serial.println();
@@ -390,7 +403,8 @@ void setup() {\
     // start receiving POCSAG messages
     Serial.print(F("[Pager] Starting to listen ... "));
     // address of this "pager":     12340XX
-    state = pager.startReceive(pin, 1234000, 0xFFFF0); //todo enhancement: try to keep a open address filter, we might find something unknown.
+    state = pager.startReceive(pin, 1234000,
+                               0xFFFF0); //todo enhancement: try to keep a open address filter, we might find something unknown.
     if (state == RADIOLIB_ERR_NONE) {
         Serial.println(F("success."));
     } else {
@@ -412,16 +426,16 @@ void setup() {\
 //        Serial.println("WIFI Sleep enabled.");
 
     digitalWrite(BOARD_LED, LOW);
-    Serial.printf("Booting time %llu ms\n",millis()-timer2);
-    SD_LOG::append("启动用时 %llu ms\n",millis()-timer2);
+    Serial.printf("Booting time %llu ms\n", millis() - timer2);
+    SD_LOG::append("启动用时 %llu ms\n", millis() - timer2);
     timer2 = 0;
 
     u8g2->setDrawColor(0);
-    u8g2->drawBox(0,42,128,14);
+    u8g2->drawBox(0, 42, 128, 14);
     u8g2->setDrawColor(1);
-    u8g2->drawStr(0,52,"Listening...");
+    u8g2->drawStr(0, 52, "Listening...");
     u8g2->sendBuffer();
-    Serial.printf("Mem left: %d Bytes\n",esp_get_free_heap_size());
+    Serial.printf("Mem left: %d Bytes\n", esp_get_free_heap_size());
     // test stuff
 //    LBJTEST();
 //     Serial.printf("CPU FREQ %d MHz\n",ets_get_cpu_frequency());
@@ -436,26 +450,26 @@ void loop() {
     else if (!isConnected() && net_timer == 0)
         net_timer = millis();
 
-    if (!isConnected() && millis() - net_timer > NETWORK_TIMEOUT ) {
+    if (!isConnected() && millis() - net_timer > NETWORK_TIMEOUT) {
         WiFi.disconnect();
         WiFiClass::mode(WIFI_OFF);
         no_wifi = true;
     }
 
-    if (ip_last != WiFi.localIP()){
+    if (ip_last != WiFi.localIP()) {
         Serial.print("Local IP ");
         Serial.print(WiFi.localIP());
         Serial.print("\n");
     }
     ip_last = WiFi.localIP();
 
-    if (give_tel_rssi){
-        telnet.printf("> RSSI %3.2f dBm.\n",radio.getRSSI(false,true));
+    if (give_tel_rssi) {
+        telnet.printf("> RSSI %3.2f dBm.\n", radio.getRSSI(false, true));
         give_tel_rssi = false;
         telnet.print("< ");
     }
-    if (give_tel_gain){
-        telnet.printf("> Gain Pos %d \n",radio.getGain());
+    if (give_tel_gain) {
+        telnet.printf("> Gain Pos %d \n", radio.getGain());
         give_tel_gain = false;
         telnet.print("< ");
     }
@@ -481,9 +495,9 @@ void loop() {
     }
 
 
-    if (timer3 == 0){
+    if (timer3 == 0) {
         timer3 = millis();
-    } else if( millis() - timer3 > 3000){ // Set to 3000 to reduce interference.
+    } else if (millis() - timer3 > 3000) { // Set to 3000 to reduce interference.
         updateInfo();
         timer3 = millis();
     }
@@ -492,21 +506,24 @@ void loop() {
 //        sd1.append("[D] 当前运行时间 %lu ms.\n",millis());
 //    }
 
-    if (millis()-timer1 >= 100 && timer1) {
-        Serial.printf("LED LOW [%llu]\n",millis()-timer1);
+    if (millis() - timer1 >= 100 && timer1) {
+        Serial.printf("LED LOW [%llu]\n", millis() - timer1);
         digitalWrite(BOARD_LED, LOW);
         timer1 = 0;
         changeCpuFreq(240); // TODO: 这玩意重启WIFI要2s的时间，想办法优化一下，要不真不行...优化到88ms了貌似，有机会看看能不能再优化点
     }
 
-    if (millis()-timer4 >= 60000 && timer4!=0 && ets_get_cpu_frequency() != 80)
+    if (millis() - timer4 >= 60000 && timer4 != 0 && ets_get_cpu_frequency() != 80)
 //        setCpuFrequencyMhz(80);
         changeCpuFreq(80);
 
-    if (isConnected() && !telnet.online){
+    if (isConnected() && !telnet.online) {
         ip = WiFi.localIP();
-        Serial.printf("WIFI Connection to %s established.\n",WIFI_SSID);
-        Serial.print("[Telnet] "); Serial.print(ip); Serial.print(":"); Serial.println(port);
+        Serial.printf("WIFI Connection to %s established.\n", WIFI_SSID);
+        Serial.print("[Telnet] ");
+        Serial.print(ip);
+        Serial.print(":");
+        Serial.println(port);
         setupTelnet();
     }
 
@@ -515,15 +532,15 @@ void loop() {
     if (pager.gotSyncState()) {
 //        sd1.append("[PGR][DEBUG] SYNC DETECTED.\n");
         // INFO: This function can not work, calling agc here stops receiving.
-    //    if (radio.getRSSI() >= -60.0 && !agc_triggered){
-    //        Serial.println("[SX1276][D] AGC TRIGGERED.");
-    //        radio.startAGC();
-    //        Serial.printf("[SX1276] AGC Triggered. Current Gain Pos %d\n",radio.getGain());
-    //        agc_triggered = true;
-    //    }
+        //    if (radio.getRSSI() >= -60.0 && !agc_triggered){
+        //        Serial.println("[SX1276][D] AGC TRIGGERED.");
+        //        radio.startAGC();
+        //        Serial.printf("[SX1276] AGC Triggered. Current Gain Pos %d\n",radio.getGain());
+        //        agc_triggered = true;
+        //    }
         if (rxInfo.cnt < 5 && (rxInfo.timer == 0 || micros() - rxInfo.timer > 11000 || micros() - rxInfo.timer < 0)) {
             // It seems the micros will overflow,causing the program to stuck here. （真的吗...）
-            float rssi = radio.getRSSI(false,true);
+            float rssi = radio.getRSSI(false, true);
             // if (rssi >= -80.0 && !agc_triggered){
             //     radio.startAGC();
             //     Serial.printf("[SX1276] AGC Triggered. Current Gain Pos %d\n",radio.getGain());
@@ -543,9 +560,11 @@ void loop() {
     if (pager.available() >= 2) { // todo add session timeout exception to prevent stuck here.
         Serial.println("[PHY-LAYER][D] AVAILABLE > 2.");
 //        sd1.append("[PHY-LAYER][D] AVAILABLE > 2.\n");
-        rxInfo.rssi = rxInfo.rssi/(float)rxInfo.cnt;
-        rxInfo.cnt = 0; rxInfo.timer = 0;
-        timer2 = millis(); timer4=millis();
+        rxInfo.rssi = rxInfo.rssi / (float) rxInfo.cnt;
+        rxInfo.cnt = 0;
+        rxInfo.timer = 0;
+        timer2 = millis();
+        timer4 = millis();
         setCpuFrequencyMhz(240);
 //        Serial.printf("CPU FREQ TO %d MHz\n",ets_get_cpu_frequency());
 
@@ -557,35 +576,36 @@ void loop() {
         // you can read the data as an Arduino String
         String str = {};
 
-        int state = pager.readDataMSA(pocdat,0);
+        int state = pager.readDataMSA(pocdat, 0);
 
         if (state == RADIOLIB_ERR_NONE) {
 //            Serial.printf("success.\n");
             digitalWrite(BOARD_LED, HIGH);
             timer1 = millis();
 
-            for (auto & i : pocdat){
+            for (auto &i: pocdat) {
                 if (i.is_empty)
                     continue;
+                Serial.printf("[D-pDATA] %d/%d: %s\n", i.addr, i.func, i.str.c_str());
                 str = str + "  " + i.str;
             }
 
-            Serial.printf("decode complete.[%llu]",millis()-timer2);
-            readDataLBJ(pocdat,&lbj);
-            Serial.printf("Read complete.[%llu]",millis()-timer2);
+            Serial.printf("decode complete.[%llu]", millis() - timer2);
+            readDataLBJ(pocdat, &lbj);
+            Serial.printf("Read complete.[%llu]", millis() - timer2);
 
-            printDataSerial(pocdat,lbj,rxInfo);
-            Serial.printf("SPRINT complete.[%llu]",millis()-timer2);
+            printDataSerial(pocdat, lbj, rxInfo);
+            Serial.printf("SPRINT complete.[%llu]", millis() - timer2);
 
             SD_LOG::disableSizeCheck();
-            appendDataLog(pocdat,lbj,rxInfo);
-            Serial.printf("sdprint complete.[%llu]",millis()-timer2);
-            appendDataCSV(sd1,pocdat,lbj,rxInfo);
-            Serial.printf("csvprint complete.[%llu]",millis()-timer2);
+            appendDataLog(pocdat, lbj, rxInfo);
+            Serial.printf("sdprint complete.[%llu]", millis() - timer2);
+            appendDataCSV(pocdat, lbj, rxInfo);
+            Serial.printf("csvprint complete.[%llu]", millis() - timer2);
             SD_LOG::enableSizeCheck();
 
-            printDataTelnet(pocdat,lbj,rxInfo);
-            Serial.printf("telprint complete.[%llu]",millis()-timer2);
+            printDataTelnet(pocdat, lbj, rxInfo);
+            Serial.printf("telprint complete.[%llu]", millis() - timer2);
             // Serial.printf("type %d \n",lbj.type);
 
 //            // print rssi
@@ -608,15 +628,14 @@ void loop() {
 //                // u8g2->drawStr(0, 26, str.c_str());
 //                pword(str.c_str(), 0, 26);
 //                u8g2->sendBuffer();
-                    if(lbj.type == 0)
-                        showLBJ0(lbj);
-                    else if (lbj.type == 1){
-                         showLBJ1(lbj);
-                    }
-                    else if (lbj.type == 2){
-                         showLBJ2(lbj);
-                    }
-                    Serial.printf("Complete u8g2 [%llu]\n",millis()-timer2);
+                if (lbj.type == 0)
+                    showLBJ0(lbj);
+                else if (lbj.type == 1) {
+                    showLBJ1(lbj);
+                } else if (lbj.type == 2) {
+                    showLBJ2(lbj);
+                }
+                Serial.printf("Complete u8g2 [%llu]\n", millis() - timer2);
 
             }
 #endif
@@ -626,21 +645,21 @@ void loop() {
         } else if (state == RADIOLIB_ERR_MSG_CORRUPT) {
 //            Serial.printf("failed.\n");
 //            Serial.println("[Pager] Reception failed, too many errors.");
-            dualPrintf(true,"[Pager] Reception failed, too many errors. \n");
+            dualPrintf(true, "[Pager] Reception failed, too many errors. \n");
 //            sd1.append("[Pager] Reception failed, too many errors. \n");
-        }
-        else {
+        } else {
             // some error occurred
-            SD_LOG::append("[Pager] Reception failed, code %d \n",state);
-            dualPrintf(true,"[Pager] Reception failed, code %d \n",state);
+            SD_LOG::append("[Pager] Reception failed, code %d \n", state);
+            dualPrintf(true, "[Pager] Reception failed, code %d \n", state);
         }
-        Serial.printf("[Pager] Processing time %llu ms.\n",millis()-timer2);
+        Serial.printf("[Pager] Processing time %llu ms.\n", millis() - timer2);
         timer2 = 0;
-        rxInfo.rssi = 0; rxInfo.fer = 0;
-    //    if (agc_triggered) {
-    //        radio.setGain(1);
-    //        agc_triggered = false;
-    //    }
+        rxInfo.rssi = 0;
+        rxInfo.fer = 0;
+        //    if (agc_triggered) {
+        //        radio.setGain(1);
+        //        agc_triggered = false;
+        //    }
     }
 }
 // END OF FILE.
