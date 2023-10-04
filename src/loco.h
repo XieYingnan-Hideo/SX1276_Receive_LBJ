@@ -85,7 +85,7 @@ static const char *locos[] = { // todo try not to use static, we are running out
         "",
         "",
         "",
-        "东风7G",
+        "东风7G?", // 这又是什么？
         "东风21",
         "",
         "",
@@ -159,7 +159,7 @@ static const char *locos[] = { // todo try not to use static, we are running out
         "新曙光",
         "神州",
         "NJ2",
-        "", // DF7G?
+        "东风7G", // DF7G?
         "",
         "",
         "",

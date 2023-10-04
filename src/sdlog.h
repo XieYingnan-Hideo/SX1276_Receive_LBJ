@@ -30,7 +30,7 @@ public:
 
     static void appendCSV(const char *format, ...);
 
-    static void appendBuffer(const char  *format, ...);
+    static void appendBuffer(const char *format, ...);
 
     static void sendBufferLOG();
 
