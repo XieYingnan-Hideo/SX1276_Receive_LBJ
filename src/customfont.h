@@ -29,13 +29,13 @@ extern "C" {
 #endif
 
 #ifndef U8X8_FONT_SECTION
-#  define U8X8_FONT_SECTION(name) 
+#  define U8X8_FONT_SECTION(name)
 #endif
 
 #endif
 
 #ifndef U8G2_FONT_SECTION
-#define U8G2_FONT_SECTION(name) U8X8_FONT_SECTION(name) 
+#define U8G2_FONT_SECTION(name) U8X8_FONT_SECTION(name)
 #endif
 
 extern const uint8_t u8g2_font_wqy15_t_custom[] U8G2_FONT_SECTION("u8g2_font_wqy15_t_custom");

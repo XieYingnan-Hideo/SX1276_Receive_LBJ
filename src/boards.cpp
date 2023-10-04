@@ -10,16 +10,15 @@ float voltage;
 SPIClass SDSPI(HSPI);
 bool have_sd = false;
 
-void initBoard()
-{
+void initBoard() {
     Serial.begin(115200);
     Serial.println("initBoard");
-    pinMode(ADC_PIN,INPUT);
+    pinMode(ADC_PIN, INPUT);
     battery.attach(ADC_PIN);
-    voltage = battery.readVoltage()*2;
-    Serial.printf("Battery: %1.2f V\n",voltage);
-    if (voltage <= 2.8){
-        ESP.deepSleep(999999999*999999999U);
+    voltage = battery.readVoltage() * 2;
+    Serial.printf("Battery: %1.2f V\n", voltage);
+    if (voltage <= 2.8) {
+        ESP.deepSleep(999999999 * 999999999U);
     }
 
 
@@ -32,8 +31,6 @@ void initBoard()
 #ifdef I2C1_SDA
     Wire1.begin(I2C1_SDA, I2C1_SCL);
 #endif
-
-
 
 
 #ifdef HAS_GPS
@@ -75,11 +72,11 @@ void initBoard()
         u8g2->setDrawColor(1);
         u8g2->setFontDirection(0);
         u8g2->firstPage();
-        if (voltage < 3.10){
+        if (voltage < 3.10) {
             u8g2->setFont(u8g2_font_wqy12_t_gb2312a);
-            u8g2->drawUTF8(24,32,"低电压");
+            u8g2->drawUTF8(24, 32, "低电压");
             u8g2->sendBuffer();
-            ESP.deepSleep(999999999*999999999U);
+            ESP.deepSleep(999999999 * 999999999U);
         }
         do {
 //            u8g2->setFont(u8g2_font_inb19_mr);
@@ -93,8 +90,8 @@ void initBoard()
             u8g2->setFont(u8g2_font_luRS19_tr);
             u8g2->drawStr(13, 32, "POCSAG");
             u8g2->setFont(u8g2_font_luIS12_tr);
-            u8g2->drawStr(40,48,"Receiver");
-        } while ( u8g2->nextPage() );
+            u8g2->drawStr(40, 48, "Receiver");
+        } while (u8g2->nextPage());
         u8g2->sendBuffer();
         u8g2->setFont(u8g2_font_fur11_tf);
 //        delay(1000);
@@ -118,8 +115,8 @@ void initBoard()
         if (u8g2) {
             do {
                 u8g2->setCursor(0, 62);
-                u8g2->println( "SDCard FAILED");
-            } while ( u8g2->nextPage() );
+                u8g2->println("SDCard FAILED");
+            } while (u8g2->nextPage());
         }
 
     } else {
@@ -128,10 +125,10 @@ void initBoard()
         if (u8g2) {
             do {
                 u8g2->setCursor(0, 62);
-                u8g2->print( "SDCard:");
+                u8g2->print("SDCard:");
                 u8g2->print(cardSize / 1024.0);
                 u8g2->println(" GB");
-            } while ( u8g2->nextPage() );
+            } while (u8g2->nextPage());
         }
 
         Serial.print("setupSDCard PASS . SIZE = ");
@@ -156,7 +153,7 @@ void initBoard()
 //            u8g2->setDrawColor(1);
 //            u8g2->setCursor(0, 62);
 //            u8g2->println( "Intializing...");
-        } while ( u8g2->nextPage() );
+        } while (u8g2->nextPage());
         // delay(5000);
     }
 #endif

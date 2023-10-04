@@ -106,7 +106,7 @@ static const char *locos[] = { // todo try not to use static, we are running out
         "",
         "",
 
-                // Diesel engine
+        // Diesel engine
         "",
         "东风",
         "东风2",
@@ -208,7 +208,7 @@ static const char *locos[] = { // todo try not to use static, we are running out
         "",
         "",
         "",
-                // Electric locos
+        // Electric locos
         "8G",
         "8K",
         "6G",
@@ -237,7 +237,7 @@ static const char *locos[] = { // todo try not to use static, we are running out
         "",
         "",
         "",
-                // HXD
+        // HXD
         "和谐",
         "",
         "HXD1",
@@ -310,7 +310,7 @@ static const char *locos[] = { // todo try not to use static, we are running out
         "",
         "",
         "",
-                // EMU
+        // EMU
         "CRH1",
         "CRH2",
         "",

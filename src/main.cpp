@@ -403,7 +403,7 @@ void setup() {
     // start receiving POCSAG messages
     Serial.print(F("[Pager] Starting to listen ... "));
     // address of this "pager":     12340XX
-    state = pager.startReceive(pin, 1234000,0xFFFF0);
+    state = pager.startReceive(pin, 1234000, 0xFFFF0);
     //TODO Enhancement: try to keep a open address filter, we might find something unknown.
     if (state == RADIOLIB_ERR_NONE) {
         Serial.println(F("success."));
@@ -413,13 +413,13 @@ void setup() {
         while (true);
     }
 
-   // state = radio.bitsyncState();
-   // if (state == 32)
-   //     Serial.println("[SX1276] Bit Synchronizer Activated");
-   // else if (!state)
-   //     Serial.println("[SX1276] Bit Synchronizer Disabled");
-   // else
-   //     Serial.printf("[SX1276] get bSyncState failed, code %d\n",state);
+    // state = radio.bitsyncState();
+    // if (state == 32)
+    //     Serial.println("[SX1276] Bit Synchronizer Activated");
+    // else if (!state)
+    //     Serial.println("[SX1276] Bit Synchronizer Disabled");
+    // else
+    //     Serial.printf("[SX1276] get bSyncState failed, code %d\n",state);
 
 
 //    if(WiFi.getSleep())

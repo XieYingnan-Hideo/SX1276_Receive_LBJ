@@ -9,11 +9,14 @@
 #include "patterns.h"
 
 #ifdef HAS_SDCARD
+
 #include <SD.h>
 #include <FS.h>
+
 #endif
 
 #ifdef HAS_DISPLAY
+
 #include <U8g2lib.h>
 
 #ifndef DISPLAY_MODEL

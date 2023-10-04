@@ -4,7 +4,7 @@
 #include "networks.h"
 
 
-int16_t PagerClient::readDataMod(String &str, size_t len, uint32_t *addr, uint32_t *func, bool* add, size_t* clen) {
+int16_t PagerClient::readDataMod(String &str, size_t len, uint32_t *addr, uint32_t *func, bool *add, size_t *clen) {
     int16_t state = RADIOLIB_ERR_NONE;
 
     // determine the message length, based on user input or the amount of received data
@@ -49,7 +49,7 @@ int16_t PagerClient::readDataMod(String &str, size_t len, uint32_t *addr, uint32
     return (state);
 }
 
-int16_t PagerClient::readDataM(uint8_t *data, size_t *len, uint32_t *addr, uint32_t *func, bool *add, size_t* clen) {
+int16_t PagerClient::readDataM(uint8_t *data, size_t *len, uint32_t *addr, uint32_t *func, bool *add, size_t *clen) {
     // find the correct address
     bool match = false;
     uint8_t framePos = 0;
@@ -63,15 +63,15 @@ int16_t PagerClient::readDataM(uint8_t *data, size_t *len, uint32_t *addr, uint3
         uint32_t cw = read();
         framePos++;
 
-        if (!is_sync){
-            if (!PocsagFec.decode(cw,errors)){
+        if (!is_sync) {
+            if (!PocsagFec.decode(cw, errors)) {
                 Serial.println("BCH Failed twice.");
                 break; // failed within two batches, drop message.
             }
         }
 
         if (!PocsagFec.decode(cw, errors)) {
-            if(is_sync)
+            if (is_sync)
                 is_sync = false;
             Serial.println("BCH Failed.");
             continue;
@@ -133,8 +133,8 @@ int16_t PagerClient::readDataM(uint8_t *data, size_t *len, uint32_t *addr, uint3
     while (!complete && phyLayer->available()) {
         uint32_t cw = read();
 
-        if (!is_sync){
-            if(!PocsagFec.decode(cw,errors)){
+        if (!is_sync) {
+            if (!PocsagFec.decode(cw, errors)) {
                 Serial.println("BCH Failed msg twice.");
                 break;
             }
@@ -145,7 +145,7 @@ int16_t PagerClient::readDataM(uint8_t *data, size_t *len, uint32_t *addr, uint3
         } else {
             if (is_sync)
                 Serial.println("BCH Failed.");
-                is_sync = false;
+            is_sync = false;
             continue;
         }
 
@@ -163,8 +163,7 @@ int16_t PagerClient::readDataM(uint8_t *data, size_t *len, uint32_t *addr, uint3
         if (!(cw & (RADIOLIB_PAGER_MESSAGE_CODE_WORD << (RADIOLIB_PAGER_CODE_WORD_LEN - 1)))) {
             uint32_t addr_found =
                     ((cw & RADIOLIB_PAGER_ADDRESS_BITS_MASK) >> (RADIOLIB_PAGER_ADDRESS_POS - 3)) | (framePos / 2);
-            if (addr_found == 1234000 || addr_found == 1234002)
-            {
+            if (addr_found == 1234000 || addr_found == 1234002) {
                 *clen = decodedBytes;
                 *add = true;
                 continue;
@@ -253,62 +252,62 @@ int16_t PagerClient::readDataMSA(struct PagerClient::pocsag_data *p, size_t len)
     uint8_t framePos = 0;
     uint32_t addr_next = 0;
 //        bool is_empty = true;
-        for (size_t i = 0; i < POCDAT_SIZE; i++) {
-            // determine the message length, based on user input or the amount of received data
-            size_t length = len;
-            if (length == 0) {
-                // one batch can contain at most 80 message symbols
-                length = available() * 80;
-            }
+    for (size_t i = 0; i < POCDAT_SIZE; i++) {
+        // determine the message length, based on user input or the amount of received data
+        size_t length = len;
+        if (length == 0) {
+            // one batch can contain at most 80 message symbols
+            length = available() * 80;
+        }
 
-            if (complete)
-                break;
+        if (complete)
+            break;
 
-            // build a temporary buffer
+        // build a temporary buffer
 #if defined(RADIOLIB_STATIC_ONLY)
-            uint8_t data[RADIOLIB_STATIC_ARRAY_SIZE + 1];
+        uint8_t data[RADIOLIB_STATIC_ARRAY_SIZE + 1];
 #else
-            auto *data = new uint8_t[length + 1];
-            if (!data) {
-                return (RADIOLIB_ERR_MEMORY_ALLOCATION_FAILED);
-            }
+        auto *data = new uint8_t[length + 1];
+        if (!data) {
+            return (RADIOLIB_ERR_MEMORY_ALLOCATION_FAILED);
+        }
 #endif
-            state = readDataMA(data, &length, &p[i].addr, &p[i].func, &framePos, &addr_next, &p[i].is_empty,
-                               &complete, &p[i].errs_total, &p[i].errs_uncorrected);
+        state = readDataMA(data, &length, &p[i].addr, &p[i].func, &framePos, &addr_next, &p[i].is_empty,
+                           &complete, &p[i].errs_total, &p[i].errs_uncorrected);
 
-            if (i && state == RADIOLIB_ERR_ADDRESS_NOT_FOUND){
+        if (i && state == RADIOLIB_ERR_ADDRESS_NOT_FOUND) {
 //                Serial.println("ADDR NO MATCH");
-                delete[] data;
-                state = RADIOLIB_ERR_NONE;
-                break;
-            }
+            delete[] data;
+            state = RADIOLIB_ERR_NONE;
+            break;
+        }
 
-            if (i && state == RADIOLIB_ERR_MSG_CORRUPT){
-                delete[] data;
-                state = RADIOLIB_ERR_NONE;
-                break;
-            }
+        if (i && state == RADIOLIB_ERR_MSG_CORRUPT) {
+            delete[] data;
+            state = RADIOLIB_ERR_NONE;
+            break;
+        }
 
-            if (state == RADIOLIB_ERR_NONE && !p[i].is_empty){
-                if (length == 0) {
-                    p[i].is_empty = true;
+        if (state == RADIOLIB_ERR_NONE && !p[i].is_empty) {
+            if (length == 0) {
+                p[i].is_empty = true;
 //                    length = 6;
 //                    strncpy((char *) data, "<tone>", length + 1);
-                }
-                data[length] = 0;
-                p[i].str = String((char *) data);
-                if (!p[i].str.length())
-                    p[i].is_empty = true;
-                p[i].len = length;
+            }
+            data[length] = 0;
+            p[i].str = String((char *) data);
+            if (!p[i].str.length())
+                p[i].is_empty = true;
+            p[i].len = length;
 //                length = 0;
 
-            }
-#if !defined(RADIOLIB_STATIC_ONLY)
-            delete[] data;
-#endif
-            if (state != RADIOLIB_ERR_NONE)
-                break;
         }
+#if !defined(RADIOLIB_STATIC_ONLY)
+        delete[] data;
+#endif
+        if (state != RADIOLIB_ERR_NONE)
+            break;
+    }
 //    // build a temporary buffer
 //#if defined(RADIOLIB_STATIC_ONLY)
 //    uint8_t data[RADIOLIB_STATIC_ARRAY_SIZE + 1];
@@ -356,11 +355,10 @@ int16_t PagerClient::readDataMA(uint8_t *data, size_t *len, uint32_t *addr, uint
     CBCH3121 PocsagFec;
     bool is_sync = true;
 
-    if (*addr_next){
+    if (*addr_next) {
         uint32_t addr_found =
                 ((*addr_next & RADIOLIB_PAGER_ADDRESS_BITS_MASK) >> (RADIOLIB_PAGER_ADDRESS_POS - 3)) | (*framePos / 2);
-        if ((addr_found & filterMask) == (filterAddr & filterMask))
-        {
+        if ((addr_found & filterMask) == (filterAddr & filterMask)) {
             *is_empty = false;
             match = true;
             symbolLength = 4;
@@ -379,9 +377,9 @@ int16_t PagerClient::readDataMA(uint8_t *data, size_t *len, uint32_t *addr, uint
         *framePos = *framePos + 1;
 
 
-        if (!is_sync){
+        if (!is_sync) {
             err_prev = errors;
-            if (!PocsagFec.decode(cw,errors)){
+            if (!PocsagFec.decode(cw, errors)) {
                 *errs_uncorrected += errors - err_prev;
 //                Serial.println("BCH Failed twice.");
                 *errs_total = errors;
@@ -392,7 +390,7 @@ int16_t PagerClient::readDataMA(uint8_t *data, size_t *len, uint32_t *addr, uint
 
         err_prev = errors;
         if (!PocsagFec.decode(cw, errors)) {
-            if(is_sync)
+            if (is_sync)
                 is_sync = false;
 //            Serial.println("BCH Failed.");
             *errs_uncorrected += errors - err_prev;
@@ -462,14 +460,14 @@ int16_t PagerClient::readDataMA(uint8_t *data, size_t *len, uint32_t *addr, uint
         *framePos = *framePos + 1;
         uint32_t cw = read();
 
-        if (!is_sync){
+        if (!is_sync) {
             err_prev = errors;
-            if(!PocsagFec.decode(cw,errors)){
+            if (!PocsagFec.decode(cw, errors)) {
 //                Serial.printf("BCH Failed twice. ERR %d \n",errors);
                 *errs_uncorrected += errors - err_prev;
                 *errs_total = errors;
                 return (RADIOLIB_ERR_MSG_CORRUPT);
-            }else{
+            } else {
 //                Serial.printf("SYNC RECOVERED, ERRORS %d \n",errors);
             }
         }
@@ -482,7 +480,7 @@ int16_t PagerClient::readDataMA(uint8_t *data, size_t *len, uint32_t *addr, uint
             if (is_sync)
                 is_sync = false;
 //            Serial.printf("BCH Failed. ERR %d \n",errors);
-            for (size_t i=0;i<5;i++) {
+            for (size_t i = 0; i < 5; i++) {
                 data[decodedBytes++] = 'X';
             }
             *errs_uncorrected += errors - err_prev;
@@ -604,7 +602,7 @@ int16_t PagerClient::readDataMS(struct PagerClient::pocsag_data *p, size_t len) 
     uint8_t data[RADIOLIB_STATIC_ARRAY_SIZE + 1];
 #else
 //    uint8_t *data = new uint8_t[length + 1];
-    for (size_t i=0;i<POCDAT_SIZE;i++){
+    for (size_t i = 0; i < POCDAT_SIZE; i++) {
         p[i].data = new uint8_t[length + 1];
         if (!&p[i].data) {
             return (RADIOLIB_ERR_MEMORY_ALLOCATION_FAILED);
@@ -617,10 +615,10 @@ int16_t PagerClient::readDataMS(struct PagerClient::pocsag_data *p, size_t len) 
 
     state = readDataS(p);
     if (state == RADIOLIB_ERR_NONE) {
-        Serial.println("[ESP32] Free MEM " + String(esp_get_free_heap_size()/1024) + " KBytes");
+        Serial.println("[ESP32] Free MEM " + String(esp_get_free_heap_size() / 1024) + " KBytes");
         // check tone-only tramsissions
         for (size_t i = 0; i < POCDAT_SIZE; i++) {
-            if (p[i].is_empty){
+            if (p[i].is_empty) {
                 delete[] p[i].data;
                 continue;
             }
@@ -667,35 +665,35 @@ int16_t PagerClient::readDataS(struct PagerClient::pocsag_data *p) {
         uint32_t cw = read();
         framePos++;
 
-        if (cnt >= POCDAT_SIZE - 1 ){
+        if (cnt >= POCDAT_SIZE - 1) {
             Serial.println("EXCEED STRUCT LIMIT.");
             return (RADIOLIB_ERR_INVALID_PAYLOAD);
         }
 
 
-        if (!is_sync){
-            if (!PocsagFec.decode(cw,errors)){
-                Serial.printf("BCH Failed twice. ERR %d \n",errors);
+        if (!is_sync) {
+            if (!PocsagFec.decode(cw, errors)) {
+                Serial.printf("BCH Failed twice. ERR %d \n", errors);
                 errors = 0;
                 p[cnt].len = decodedBytes;
-                Serial.printf("data struct %d, len %d \n",cnt,p[cnt].len);
-                if (!match){
+                Serial.printf("data struct %d, len %d \n", cnt, p[cnt].len);
+                if (!match) {
                     if (!cnt)
                         return (RADIOLIB_ERR_ADDRESS_NOT_FOUND);
                     Serial.println("ADDR NO MATCH IN SYNC.");
                     return (RADIOLIB_ERR_NONE);
                 }
                 break; // failed within two batches, drop message.
-            }else{
-                Serial.printf("SYNC RECOVERED, ERRORS %d \n",errors);
+            } else {
+                Serial.printf("SYNC RECOVERED, ERRORS %d \n", errors);
                 errors = 0;
             }
         }
 
         if (!PocsagFec.decode(cw, errors)) {
-            if(is_sync)
+            if (is_sync)
                 is_sync = false;
-            Serial.printf("BCH Failed. ERR %d \n",errors);
+            Serial.printf("BCH Failed. ERR %d \n", errors);
             errors = 0;
             continue;
         } else {
@@ -710,7 +708,7 @@ int16_t PagerClient::readDataS(struct PagerClient::pocsag_data *p) {
             // save the number of decoded bytes
             Serial.println("IDLE FIND.");
             p[cnt].len = decodedBytes;
-            Serial.printf("data struct %d, len %d \n",cnt,p[cnt].len);
+            Serial.printf("data struct %d, len %d \n", cnt, p[cnt].len);
             break;
         }
 
@@ -724,7 +722,7 @@ int16_t PagerClient::readDataS(struct PagerClient::pocsag_data *p) {
         // not an idle code word, check if it's an address word
         if (cw & (RADIOLIB_PAGER_MESSAGE_CODE_WORD << (RADIOLIB_PAGER_CODE_WORD_LEN - 1))) {
             Serial.println("GOT DATA.");
-            Serial.printf("RAW CW %X \n",cw);
+            Serial.printf("RAW CW %X \n", cw);
             // check overflow from previous code word
             uint8_t bitPos = RADIOLIB_PAGER_CODE_WORD_LEN - 1 - symbolLength;
             if (overflow) {
@@ -785,10 +783,10 @@ int16_t PagerClient::readDataS(struct PagerClient::pocsag_data *p) {
             }
         } else {
             // should be an address code word, extract the address
-            if (!p[cnt].is_empty){
+            if (!p[cnt].is_empty) {
                 match = false;
                 p[cnt].len = decodedBytes;
-                Serial.printf("data struct %d, len %d \n",cnt,p[cnt].len);
+                Serial.printf("data struct %d, len %d \n", cnt, p[cnt].len);
                 errors = 0;
                 decodedBytes = 0;
                 prevCw = 0;
@@ -804,8 +802,8 @@ int16_t PagerClient::readDataS(struct PagerClient::pocsag_data *p) {
                 match = true;
                 p[cnt].is_empty = false;
                 if (!p[cnt].addr) {
-                    Serial.printf("GOT ADDR %d \n",addr_found);
-                    Serial.printf("RAW CW %X \n",cw);
+                    Serial.printf("GOT ADDR %d \n", addr_found);
+                    Serial.printf("RAW CW %X \n", cw);
                     p[cnt].addr = addr_found;
                     p[cnt].func = (cw & RADIOLIB_PAGER_FUNCTION_BITS_MASK) >> RADIOLIB_PAGER_FUNC_BITS_POS;
                 }
@@ -821,7 +819,7 @@ int16_t PagerClient::readDataS(struct PagerClient::pocsag_data *p) {
             }
         }
 
-        if (!match){
+        if (!match) {
             if (!cnt)
                 return (RADIOLIB_ERR_ADDRESS_NOT_FOUND);
             Serial.println("ADDR NO MATCH.");

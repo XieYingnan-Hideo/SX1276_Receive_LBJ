@@ -2733,21 +2733,20 @@
         0, 0
 };
 
-WCHAR ff_oem2uni (	/* Returns Unicode character, zero on error */
-        WCHAR	oem,	/* OEM code to be converted */
-        WORD	cp		/* Code page for the conversion */
-)
-{
+WCHAR ff_oem2uni(    /* Returns Unicode character, zero on error */
+        WCHAR oem,    /* OEM code to be converted */
+        WORD cp        /* Code page for the conversion */
+) {
     const WCHAR *p;
     WCHAR c = 0;
     UINT i = 0, n, li, hi;
 
 
-    if (oem < 0x80) {	/* ASCII? */
+    if (oem < 0x80) {    /* ASCII? */
         c = oem;
 
-    } else {			/* Extended char */
-        if (cp == FF_CODE_PAGE) {	/* Is it valid code page? */
+    } else {            /* Extended char */
+        if (cp == FF_CODE_PAGE) {    /* Is it valid code page? */
             p = CVTBL(oem2uni, FF_CODE_PAGE);
             hi = sizeof CVTBL(oem2uni, FF_CODE_PAGE) / 4 - 1;
             li = 0;

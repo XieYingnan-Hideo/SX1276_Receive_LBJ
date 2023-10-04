@@ -23,7 +23,7 @@
 #define FUNCTION_DOWN 1
 #define FUNCTION_UP 3
 
-struct lbj_data{
+struct lbj_data {
     int8_t type = -1;
     char train[6] = "<NUL>";
     int8_t direction = -1;
@@ -36,7 +36,7 @@ struct lbj_data{
     char lbj_class[3] = "NA"; // '0X' or ' X'
     char loco[9] = "<NUL>"; // such as 23500331
     char route[17] = "********"; // 16 bytes GBK data. //todo output this info to log in case characters out of GBK table.
-    char route_utf8[17*2] = "********";
+    char route_utf8[17 * 2] = "********";
     char pos_lon_deg[4] = ""; // ---
     char pos_lon_min[8] = ""; // --.----
     char pos_lat_deg[3] = ""; // --
@@ -45,7 +45,7 @@ struct lbj_data{
     char pos_lat[9] = "<NUL>"; // --°--.----'
 };
 
-struct rx_info{
+struct rx_info {
     float rssi = 0;
     float fer = 0;
     uint32_t cnt = 0;
@@ -53,9 +53,9 @@ struct rx_info{
 };
 /* ------------------------------------------------ */
 
-extern const char* time_zone;
-extern const char* ntpServer1;
-extern const char* ntpServer2;
+extern const char *time_zone;
+extern const char *ntpServer1;
+extern const char *ntpServer2;
 
 extern struct tm time_info;
 
@@ -67,7 +67,7 @@ extern struct tm time_info;
 
 extern ESPTelnet telnet;
 extern IPAddress ip;
-extern uint16_t  port;
+extern uint16_t port;
 extern bool is_startline;
 extern SD_LOG sd1;
 extern bool give_tel_rssi;
@@ -75,15 +75,23 @@ extern bool give_tel_gain;
 extern bool no_wifi;
 
 bool isConnected();
-bool connectWiFi(const char* ssid, const char* password, int max_tries = 20, int pause = 500);
-void silentConnect(const char* ssid, const char* password);
+
+bool connectWiFi(const char *ssid, const char *password, int max_tries = 20, int pause = 500);
+
+void silentConnect(const char *ssid, const char *password);
+
 void changeCpuFreq(uint32_t freq_mhz);
+
 void timeAvailable(struct timeval *t);
 
 void onTelnetConnect(String ip);
+
 void onTelnetDisconnect(String ip);
+
 void onTelnetReconnect(String ip);
+
 void onTelnetConnectionAttempt(String ip);
+
 void onTelnetInput(String str);
 
 void setupTelnet();
@@ -91,17 +99,25 @@ void setupTelnet();
 //extern bool ipChanged(uint16_t interval);
 
 int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l);
+
 void recodeBCD(const char *c, String *v);
 
-int enc_unicode_to_utf8_one(unsigned long unic,unsigned char *pOutput);
-void gbk2utf8(const uint8_t *gbk,uint8_t *utf8,size_t gbk_len);
-void gbk2utf8(const char *gbk1,char *utf8s,size_t gbk_len);
-void telPrintf(bool time_stamp, const char* format, ...);
+int enc_unicode_to_utf8_one(unsigned long unic, unsigned char *pOutput);
+
+void gbk2utf8(const uint8_t *gbk, uint8_t *utf8, size_t gbk_len);
+
+void gbk2utf8(const char *gbk1, char *utf8s, size_t gbk_len);
+
+void telPrintf(bool time_stamp, const char *format, ...);
+
 void telPrintLog(int chars);
 
-void printDataSerial(PagerClient::pocsag_data *p,const struct lbj_data& l,const struct rx_info& r);
-void appendDataLog(PagerClient::pocsag_data *p, const struct lbj_data& l, const struct rx_info& r);
-void printDataTelnet(PagerClient::pocsag_data *p,const struct lbj_data& l,const struct rx_info& r);
+void printDataSerial(PagerClient::pocsag_data *p, const struct lbj_data &l, const struct rx_info &r);
+
+void appendDataLog(PagerClient::pocsag_data *p, const struct lbj_data &l, const struct rx_info &r);
+
+void printDataTelnet(PagerClient::pocsag_data *p, const struct lbj_data &l, const struct rx_info &r);
+
 void appendDataCSV(PagerClient::pocsag_data *p, const struct lbj_data &l, const struct rx_info &r);
 
 #endif //PAGER_RECEIVE_NETWORKS_H
