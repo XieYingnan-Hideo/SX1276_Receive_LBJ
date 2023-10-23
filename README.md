@@ -1,7 +1,11 @@
 # Pager_Receive
 A LBJ Message Receiver Based on TTGO LoRa 32 v1.6.1 (SX1276)
 
-The Pager_Receive project is modified from [RadioLib](https://github.com/jgromes/RadioLib)'s Pager_Receive.ino, based on the TTGO LoRa 32 v1.6.1 dev board, aims to provide an alternative to the expensive programmable pagers commonly used in receiving the Chinese Railway Train Proximity Alarm messages (often transmitted by on board LBJ systems).
+The Pager_Receive project is modified from [RadioLib](https://github.com/jgromes/RadioLib)'s Pager_Receive.ino,
+based on the TTGO LoRa 32 v1.6.1 dev board.
+This project aims to provide an alternative to the expensive programmable pagers
+commonly used in receiving the Chinese Railway Train Proximity Alarm messages
+(often transmitted by on board LBJ systems).
 
 ## Notice
 This project is a prototype, a jump start, and currently WIP.

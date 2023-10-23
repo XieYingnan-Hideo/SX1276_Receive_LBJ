@@ -64,23 +64,28 @@ int16_t SX127x::RxChainCalibration(void) {
     RADIOLIB_ASSERT(state);
     if (this->mod->SPIgetRegValue(RADIOLIB_SX127X_REG_IMAGE_CAL, 5, 5) != RADIOLIB_SX127X_IMAGE_CAL_RUNNING) {
         this->mod->SPIsetRegValue(RADIOLIB_SX127X_REG_IMAGE_CAL, RADIOLIB_SX127X_IMAGE_CAL_START, 6, 6);
-        Serial.print("\nCalled calibration...");
+        // Serial.print("\nCalled calibration...");
     }
     while (this->mod->SPIgetRegValue(RADIOLIB_SX127X_REG_IMAGE_CAL, 5, 5) == RADIOLIB_SX127X_IMAGE_CAL_RUNNING) {
     }
-    if (this->mod->SPIgetRegValue(RADIOLIB_SX127X_REG_IMAGE_CAL, 5, 5) == RADIOLIB_SX127X_IMAGE_CAL_COMPLETE)
-        Serial.print("Done.");
+    if (this->mod->SPIgetRegValue(RADIOLIB_SX127X_REG_IMAGE_CAL, 5, 5) != RADIOLIB_SX127X_IMAGE_CAL_COMPLETE) {
+        Serial.printf("[%s:%d] Failed to calibrate LF.\n", __FILENAME__,
+                      __LINE__); // todo-enhance: assign a return value instead of serial output.
+    }
+    // Serial.print("Done.");
     state = setFrequencyRaw(868.0); // only on HF capable modules!
     RADIOLIB_ASSERT(state);
 
     if (this->mod->SPIgetRegValue(RADIOLIB_SX127X_REG_IMAGE_CAL, 5, 5) != RADIOLIB_SX127X_IMAGE_CAL_RUNNING) {
         this->mod->SPIsetRegValue(RADIOLIB_SX127X_REG_IMAGE_CAL, RADIOLIB_SX127X_IMAGE_CAL_START, 6, 6);
-        Serial.print("\nCalled HF calibration...");
+        // Serial.print("\nCalled HF calibration...");
     }
     while (this->mod->SPIgetRegValue(RADIOLIB_SX127X_REG_IMAGE_CAL, 5, 5) == RADIOLIB_SX127X_IMAGE_CAL_RUNNING) {
     }
-    if (this->mod->SPIgetRegValue(RADIOLIB_SX127X_REG_IMAGE_CAL, 5, 5) == RADIOLIB_SX127X_IMAGE_CAL_COMPLETE)
-        Serial.print("Done.\n");
+    if (this->mod->SPIgetRegValue(RADIOLIB_SX127X_REG_IMAGE_CAL, 5, 5) != RADIOLIB_SX127X_IMAGE_CAL_COMPLETE) {
+        Serial.printf("[%s:%d] Failed to calibrate HF.\n", __FILENAME__, __LINE__);
+    }
+    // Serial.print("Done.\n");
 
     return (state);
 }
@@ -1018,7 +1023,7 @@ int16_t SX127x::setAFCAGCTrigger(uint8_t trigger) {
 }
 
 void SX127x::startAGC() {
-    this->mod->SPIsetRegValue(RADIOLIB_SX127X_REG_AFC_FEI,RADIOLIB_SX127X_AGC_START,4,4);
+    this->mod->SPIsetRegValue(RADIOLIB_SX127X_REG_AFC_FEI, RADIOLIB_SX127X_AGC_START, 4, 4);
 }
 
 int16_t SX127x::setSyncWord(uint8_t *syncWord, size_t len) {
