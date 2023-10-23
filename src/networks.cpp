@@ -43,7 +43,7 @@ void silentConnect(const char *ssid, const char *password) {
     WiFi.begin(ssid, password);
 }
 
-void changeCpuFreq(uint32_t freq_mhz) { //todo 这个如果一直没Wifi的话，变频会导致又开始扫描WIFI，找到这个扫描超时开关，加进来。
+void changeCpuFreq(uint32_t freq_mhz) {
     if (isConnected() || no_wifi) {
         if (ets_get_cpu_frequency() != freq_mhz)
             setCpuFrequencyMhz(freq_mhz);
@@ -371,7 +371,7 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l) {
                     }
                 }
 
-                // BCD to HEX and to ASCII for class  todo: Add range filter to filter out of table characters, limit by GBK.
+                // BCD to HEX and to ASCII for class
                 if (l->info2_hex.length() >= 4 && l->info2_hex[0] != 'X') {
                     // this is very likely the most ugly code I've ever written, I apologize for that.
                     size_t c = 0;
@@ -810,10 +810,6 @@ void printDataTelnet(PagerClient::pocsag_data *p, const struct lbj_data &l, cons
         telPrintf(true, "[R:%3.1f dBm/F:%5.2f Hz]\n", r.rssi, r.fer);
     }
 }
-
-// TODO: Every append sentence costs 20 ms, now two functions costs 200+ in total, try reduce time consumption.
-// Ether by reducing amount of append calling or simplify append function.
-// 可以考虑建立一个BUFFER，先都写进这个buffer然后一次写入sd卡
 
 void appendDataCSV(PagerClient::pocsag_data *p, const struct lbj_data &l, const struct rx_info &r) {
     // 电压,系统时间,日期,时间,LBJ时间,方向,级别,车次,速度,公里标,机车编号,线路,纬度,经度,HEX,RSSI,FER,原始数据,错误,错误率
