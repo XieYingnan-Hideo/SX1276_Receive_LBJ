@@ -70,7 +70,7 @@ int16_t SX127x::RxChainCalibration(void) {
     }
     if (this->mod->SPIgetRegValue(RADIOLIB_SX127X_REG_IMAGE_CAL, 5, 5) != RADIOLIB_SX127X_IMAGE_CAL_COMPLETE) {
         Serial.printf("[%s:%d] Failed to calibrate LF.\n", __FILENAME__,
-                      __LINE__); // todo-enhance: assign a return value instead of serial output.
+                      __LINE__); //TODO Enhancement: assign a return value instead of serial output.
     }
     // Serial.print("Done.");
     state = setFrequencyRaw(868.0); // only on HF capable modules!

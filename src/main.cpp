@@ -53,7 +53,7 @@ bool low_volt_warned = false;
 bool give_tel_rssi = false;
 bool give_tel_gain = false;
 bool no_wifi = false;
-SD_LOG sd1(SD);
+SD_LOG sd1;
 struct rx_info rxInfo;
 //endregion
 
@@ -150,7 +150,7 @@ void updateInfo() {
     sprintf(buffer, "%1.2f", voltage); // todo: Implement average voltage reading.
     if (voltage < 3.15 && !low_volt_warned) {
         Serial.printf("Warning! Low Voltage detected, %1.2fV\n", voltage);
-        SD_LOG::append("低压警告，电池电压%1.2fV\n", voltage);
+        sd1.append("低压警告，电池电压%1.2fV\n", voltage);
         low_volt_warned = true;
     }
     u8g2->drawStr(105, 64, buffer);
@@ -320,7 +320,7 @@ void LBJTEST() {
 
     readDataLBJ(pocdat, &lbj);
     printDataSerial(pocdat, lbj, rxInfo);
-//    appendDataLog(sd1,pocdat,lbj,rxInfo);
+    appendDataLog(pocdat,lbj,rxInfo);
     printDataTelnet(pocdat, lbj, rxInfo);
     rxInfo.rssi = 0;
     rxInfo.fer = 0;
@@ -357,12 +357,13 @@ int initPager() {// initialize SX1276 with default settings
 void setup() {
     timer2 = millis();
     initBoard();
+    sd1.setFS(SD);
     delay(150);
 
     if (have_sd) {
-        SD_LOG::begin("/LOGTEST");
-        SD_LOG::beginCSV("/CSVTEST");
-        SD_LOG::append("电池电压 %1.2fV\n", battery.readVoltage() * 2);
+        sd1.begin("/LOGTEST");
+        sd1.beginCSV("/CSVTEST");
+        sd1.append("电池电压 %1.2fV\n", battery.readVoltage() * 2);
     }
     // Sync time.
 
@@ -410,7 +411,7 @@ void setup() {
 
     digitalWrite(BOARD_LED, LED_OFF);
     Serial.printf("Booting time %llu ms\n", millis() - timer2);
-    SD_LOG::append("启动用时 %llu ms\n", millis() - timer2);
+    sd1.append("启动用时 %llu ms\n", millis() - timer2);
     timer2 = 0;
 
     if (u8g2) {
@@ -530,9 +531,11 @@ void loop() {
         timer3 = millis();
     }
 
-//    if (millis()%5000 == 0){
-//        sd1.append("[D] 当前运行时间 %lu ms.\n",millis());
-//    }
+   // if (millis()%5000 == 0){
+   //     sd1.append("[D] 当前运行时间 %lu ms.\n",millis());
+   //     sd1.append("[D] 测试输出：\n");
+   //     LBJTEST();
+   // }
 
     if (millis() - timer1 >= 200 && timer1) {
         // Serial.printf("LED LOW [%llu]\n", millis() - timer1);
@@ -590,12 +593,12 @@ void loop() {
             printDataSerial(pocdat, lbj, rxInfo);
             // Serial.printf("SPRINT complete.[%llu]", millis() - timer2);
 
-            SD_LOG::disableSizeCheck();
+            sd1.disableSizeCheck();
             appendDataLog(pocdat, lbj, rxInfo);
             // Serial.printf("sdprint complete.[%llu]", millis() - timer2);
             appendDataCSV(pocdat, lbj, rxInfo);
             // Serial.printf("csvprint complete.[%llu]", millis() - timer2);
-            SD_LOG::enableSizeCheck();
+            sd1.enableSizeCheck();
 
             printDataTelnet(pocdat, lbj, rxInfo);
             // Serial.printf("telprint complete.[%llu]", millis() - timer2);
@@ -634,7 +637,7 @@ void loop() {
 //            sd1.append("[Pager] Reception failed, too many errors. \n");
         } else {
             // some error occurred
-            SD_LOG::append("[Pager] Reception failed, code %d \n", state);
+            sd1.append("[Pager] Reception failed, code %d \n", state);
             dualPrintf(true, "[Pager] Reception failed, code %d \n", state);
         }
         Serial.printf("[Pager] Processing time %llu ms.\n", millis() - timer2);

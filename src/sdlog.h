@@ -18,68 +18,72 @@
 
 class SD_LOG {
 public:
-    explicit SD_LOG(fs::FS &fs);
+    // SD_LOG() = default;
+    SD_LOG();
 
-    static int begin(const char *path);
+    // explicit SD_LOG(fs::FS &fs);
+    void setFS(fs::FS &fs);
 
-    static int beginCSV(const char *path);
+    int begin(const char *path);
 
-    static void getFilenameCSV(const char *path);
+    int beginCSV(const char *path);
 
-    static void append(const char *format, ...);
+    void getFilenameCSV(const char *path);
 
-    static void appendCSV(const char *format, ...);
+    void append(const char *format, ...);
 
-    static void appendBuffer(const char *format, ...);
+    void appendCSV(const char *format, ...);
 
-    static void sendBufferLOG();
+    void appendBuffer(const char *format, ...);
 
-    static void appendBufferCSV(const char *format, ...);
+    void sendBufferLOG();
 
-    static void sendBufferCSV();
+    void appendBufferCSV(const char *format, ...);
 
-    static void printTel(int chars, ESPTelnet &tel);
+    void sendBufferCSV();
 
-    static File logFile(char op);
+    void printTel(int chars, ESPTelnet &tel);
 
-    static void reopen();
+    File logFile(char op);
 
-    static void disableSizeCheck();
+    void reopen();
 
-    static void enableSizeCheck();
+    void disableSizeCheck();
 
-    static bool status();
+    void enableSizeCheck();
+
+    bool status() const;
 
 private:
-    static void getFilename(const char *path);
+    void getFilename(const char *path);
 
-    static void writeHeader();
+    void writeHeader();
 
-    static void writeHeaderCSV();
+    void writeHeaderCSV();
 
-    static String log_path;
-    static String csv_path;
-    static fs::FS *filesys;
-    static String large_buffer;
-    static String large_buffer_csv;
-    static File log;
-    static File csv;
-    static int log_count; // Actual file count - 1. =0 default
-    static char filename[32]; // =""
-    static char filename_csv[32];
-    static bool sd_log; // = false
-    static bool sd_csv;
+    String log_path;
+    String csv_path;
+    fs::FS *filesys;
+    String large_buffer;
+    String large_buffer_csv;
+    File log;
+    File csv;
+    int log_count; // Actual file count - 1. =0 default
+    char filename[32]; // =""
+    char filename_csv[32];
+    bool sd_log; // = false
+    bool sd_csv;
 //    bool have_sd = false;
 //    bool haveNTP = false;
-    static bool is_newfile; // = false
-    static bool is_startline; // = true
-    static bool size_checked;
-    static bool is_newfile_csv;
-    static bool is_startline_csv;
-    static const char *log_directory;
-    static const char *csv_directory;
+    bool is_newfile; // = false
+    bool is_startline; // = true
+    bool size_checked;
+    bool is_newfile_csv;
+    bool is_startline_csv;
+    const char *log_directory;
+    const char *csv_directory;
 
-    static struct tm timein;
+    struct tm timein{};
 };
 
 

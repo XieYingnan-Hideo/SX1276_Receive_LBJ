@@ -5,28 +5,47 @@
 #include "sdlog.h"
 
 // Initialize static variables.
-File SD_LOG::log;
-File SD_LOG::csv;
-bool SD_LOG::is_newfile = false;
-bool SD_LOG::is_newfile_csv = false;
-char SD_LOG::filename[32] = "";
-char SD_LOG::filename_csv[32] = "";
-bool SD_LOG::sd_log = false;
-bool SD_LOG::sd_csv = false;
-struct tm SD_LOG::timein{};
-fs::FS *SD_LOG::filesys;
-int SD_LOG::log_count = 0;
-const char *SD_LOG::log_directory{};
-const char *SD_LOG::csv_directory{};
-String SD_LOG::log_path;
-String SD_LOG::csv_path;
-bool SD_LOG::is_startline = true;
-bool SD_LOG::is_startline_csv = true;
-bool SD_LOG::size_checked = false;
-String SD_LOG::large_buffer;
-String SD_LOG::large_buffer_csv;
+// File SD_LOG::log;
+// File SD_LOG::csv;
+// bool SD_LOG::is_newfile = false;
+// bool SD_LOG::is_newfile_csv = false;
+// char SD_LOG::filename[32] = "";
+// char SD_LOG::filename_csv[32] = "";
+// bool SD_LOG::sd_log = false;
+// bool SD_LOG::sd_csv = false;
+// struct tm SD_LOG::timein{};
+// fs::FS *SD_LOG::filesys;
+// int SD_LOG::log_count = 0;
+// const char *SD_LOG::log_directory{};
+// const char *SD_LOG::csv_directory{};
+// String SD_LOG::log_path;
+// String SD_LOG::csv_path;
+// bool SD_LOG::is_startline = true;
+// bool SD_LOG::is_startline_csv = true;
+// bool SD_LOG::size_checked = false;
+// String SD_LOG::large_buffer;
+// String SD_LOG::large_buffer_csv;
 
-SD_LOG::SD_LOG(fs::FS &fs) {
+// SD_LOG::SD_LOG(fs::FS &fs) {
+//     filesys = &fs;
+// }
+
+SD_LOG::SD_LOG() :
+        filesys{},
+        log_count{},
+        filename{},
+        filename_csv{},
+        sd_log(false),
+        sd_csv(false),
+        is_newfile(false),
+        is_newfile_csv(false),
+        is_startline(true),
+        is_startline_csv(true),
+        size_checked(false),
+        log_directory{},
+        csv_directory{}{}
+
+void SD_LOG::setFS(fs::FS &fs) {
     filesys = &fs;
 }
 
@@ -422,7 +441,6 @@ void SD_LOG::reopen() {
     log = filesys->open(log_path, "a");
 }
 
-bool SD_LOG::status() {
+bool SD_LOG::status() const {
     return sd_log;
 }
-
