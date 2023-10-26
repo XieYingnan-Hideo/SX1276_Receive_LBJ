@@ -271,7 +271,7 @@ void SD_LOG::appendBuffer(const char *format, ...) {
     va_end(args);
     if (is_startline) {
         char *time_buffer = new char[128];
-        if (getLocalTime(&timein, 0)) {
+        if (getLocalTime(&timein, 1)) {
             sprintf(time_buffer, "%d-%02d-%02d %02d:%02d:%02d > ", timein.tm_year + 1900, timein.tm_mon + 1,
                     timein.tm_mday, timein.tm_hour, timein.tm_min, timein.tm_sec);
             large_buffer += time_buffer;
@@ -321,7 +321,7 @@ void SD_LOG::appendBufferCSV(const char *format, ...) {
         char *headers = new char[128];
         sprintf(headers, "%1.2f,%lu,", battery.readVoltage() * 2, millis());
         large_buffer_csv += headers;
-        if (getLocalTime(&timein, 0)) {
+        if (getLocalTime(&timein, 1)) {
             sprintf(headers, "%d-%02d-%02d,%02d:%02d:%02d,", timein.tm_year + 1900, timein.tm_mon + 1,
                     timein.tm_mday, timein.tm_hour, timein.tm_min, timein.tm_sec);
             large_buffer_csv += headers;

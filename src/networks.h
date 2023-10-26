@@ -14,6 +14,7 @@
 #include "sdlog.h"
 #include "boards.h"
 #include "loco.h"
+#include "freertos/FreeRTOS.h"
 
 /* ------------------------------------------------ */
 #define LBJ_INFO_ADDR 1234000
@@ -22,6 +23,8 @@
 
 #define FUNCTION_DOWN 1
 #define FUNCTION_UP 3
+
+#define POCDAT_SIZE 16 // defines number of the pocsag data structures.
 
 struct lbj_data {
     int8_t type = -1;
@@ -51,6 +54,12 @@ struct rx_info {
     uint32_t cnt = 0;
     uint64_t timer = 0;
 };
+
+struct data_bond {
+    PagerClient::pocsag_data pocsagData[POCDAT_SIZE];
+    lbj_data lbjData;
+    String str;
+};
 /* ------------------------------------------------ */
 
 extern const char *time_zone;
@@ -62,8 +71,6 @@ extern struct tm time_info;
 #define WIFI_SSID       "MI CC9 Pro"
 #define WIFI_PASSWORD   "11223344"
 #define NETWORK_TIMEOUT 1800000 // 30 minutes
-
-#define POCDAT_SIZE 16 // defines number of the pocsag data structures.
 
 extern ESPTelnet telnet;
 extern IPAddress ip;
@@ -95,6 +102,8 @@ void onTelnetConnectionAttempt(String ip);
 void onTelnetInput(String str);
 
 void setupTelnet();
+
+void timeTask(void *pVoid);
 
 //extern bool ipChanged(uint16_t interval);
 
