@@ -37,13 +37,14 @@ SD_LOG::SD_LOG() :
         filename_csv{},
         sd_log(false),
         sd_csv(false),
+        sd_cd(false),
         is_newfile(false),
         is_newfile_csv(false),
         is_startline(true),
         is_startline_csv(true),
         size_checked(false),
         log_directory{},
-        csv_directory{}{}
+        csv_directory{} {}
 
 void SD_LOG::setFS(fs::FS &fs) {
     filesys = &fs;
@@ -261,6 +262,19 @@ void SD_LOG::append(const char *format, ...) {
 //    Serial.printf("[D] Using log %s \n", log_path.c_str());
 }
 
+void SD_LOG::append(int level, const char *format, ...) {
+    if (level > LOG_VERBOSITY)
+        return;
+    appendBuffer("[DEBUG-%d] ", level);
+    char buffer[256];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    appendBuffer(buffer);
+    sendBufferLOG();
+}
+
 void SD_LOG::appendBuffer(const char *format, ...) {
     if (!sd_log)
         return;
@@ -285,6 +299,18 @@ void SD_LOG::appendBuffer(const char *format, ...) {
     if (nullptr != strchr(format, '\n')) /* detect end of line in stream */
         is_startline = true;
     large_buffer += buffer;
+}
+
+void SD_LOG::appendBuffer(int level, const char *format, ...) {
+    if (level > LOG_VERBOSITY)
+        return;
+    appendBuffer("[DEBUG-%d] ", level);
+    char buffer[256];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    appendBuffer(buffer);
 }
 
 void SD_LOG::sendBufferLOG() {
@@ -377,15 +403,17 @@ File SD_LOG::logFile(char op) {
     return log;
 }
 
-void SD_LOG::printTel(int chars, ESPTelnet &tel) {
+void SD_LOG::printTel(unsigned int chars, ESPTelnet &tel) {
     log.close();
-    uint32_t pos, left;
+    uint32_t pos,left{};
     File log_r = filesys->open(log_path, "r");
     if (chars < log_r.size())
         pos = log_r.size() - chars;
-    else
+    else {
+        left = chars - log_r.size();
         pos = 0;
-    left = chars - log_r.size();
+    }
+    // Serial.println("LEFT = " + String(chars - log_r.size()));
     String line;
     if (!log_r.seek(pos))
         Serial.println("[SDLOG] seek failed!");
@@ -398,16 +426,19 @@ void SD_LOG::printTel(int chars, ESPTelnet &tel) {
             tel.printf("[SDLOG] Read failed!\n");
     }
     if (left) {
+        // Serial.printf("SEEK LAST LEFT %u\n", left);
         char last_file_name[32];
-        sprintf(last_file_name, "LOG_%04d.txt", log_count - 1);
+        sprintf(last_file_name, "LOG_%04d.txt", log_count - 2);
         String log_last_path = String(log_directory) + '/' + String(last_file_name);
-        log_r = filesys->open(last_file_name, "r");
+        Serial.println(log_last_path);
+        log_r = filesys->open(log_last_path, "r");
         if (left < log_r.size())
             pos = log_r.size() - left;
         else
             pos = 0;
-        if (!log_r.seek(pos))
+        if (!log_r.seek(pos)) {
             Serial.println("[SDLOG] seek failed!");
+        }
         while (log_r.available()) {
             line = log_r.readStringUntil('\n');
             if (line) {
@@ -443,4 +474,53 @@ void SD_LOG::reopen() {
 
 bool SD_LOG::status() const {
     return sd_log;
+}
+
+int SD_LOG::beginCD(const char *path) {
+    char filename_cd[32];
+    String cd_path;
+    File cwd = filesys->open(path, FILE_READ, false);
+    if (!cwd) {
+        filesys->mkdir(path);
+        cwd = filesys->open(path, FILE_READ, false);
+        if (!cwd) {
+            Serial.println("[SDLOG] Failed to open coredump directory!");
+            Serial.println("[SDLOG] Will not write coredump to SD card.");
+            return -1;
+        }
+    }
+    if (!cwd.isDirectory()) {
+        Serial.println("[SDLOG] coredump directory error!");
+        return -2;
+    }
+    int counter = 0;
+    while (cwd.openNextFile()) {
+        counter++;
+    }
+    sprintf(filename_cd, "COREDUMP_%04d.bin", counter);
+    Serial.printf("[SDLOG] %d coredump files, using %s \n", counter, filename_cd);
+
+    cd_path = String(String(path) + '/' + filename_cd);
+    cd = filesys->open(cd_path, "a", true);
+    if (!cd) {
+        Serial.println("[SDLOG] Failed to open coredump file!");
+        Serial.println("[SDLOG] Will not write coredump to SD card.");
+        return -3;
+    }
+    sd_cd = true;
+    return 0;
+}
+
+void SD_LOG::appendCD(const uint8_t *data, size_t size) {
+    if (!sd_cd)
+        return;
+    cd.write(data,size);
+}
+
+void SD_LOG::endCD() {
+    if (!sd_cd)
+        return;
+    append("内核转储文件已保存至 %s\n",cd.name());
+    cd.close();
+    sd_cd = false;
 }

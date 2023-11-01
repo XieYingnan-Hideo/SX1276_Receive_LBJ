@@ -7,6 +7,7 @@
 
 #include <WiFi.h>
 #include <ctime>
+#include <DS3231.h>
 #include "esp_sntp.h"
 #include "ESPTelnet.h"
 #include <RadioLib.h>
@@ -67,6 +68,7 @@ extern const char *ntpServer1;
 extern const char *ntpServer2;
 
 extern struct tm time_info;
+extern DS3231 rtc;
 
 #define WIFI_SSID       "MI CC9 Pro"
 #define WIFI_PASSWORD   "11223344"

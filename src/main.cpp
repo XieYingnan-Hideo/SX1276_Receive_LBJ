@@ -27,10 +27,12 @@
 #include <WiFi.h>
 #include "esp_sntp.h"
 #include "networks.h"
+#include "coredump.h"
 #include "sdlog.h"
 #include "customfont.h"
+#include "esp_core_dump.h"
 
-#define FD_TASK_STACK_SIZE 70000
+#define FD_TASK_STACK_SIZE 68200
 #define FD_TASK_TIMEOUT 750 // ms
 //region Variables
 SX1276 radio = new Module(RADIO_CS_PIN, RADIO_DIO0_PIN, RADIO_RST_PIN, RADIO_DIO1_PIN);
@@ -58,6 +60,7 @@ bool no_wifi = false;
 SD_LOG sd1;
 struct rx_info rxInfo;
 struct data_bond *db = nullptr;
+DS3231 rtc;
 // PagerClient::pocsag_data *pd = nullptr;
 //endregion
 
@@ -375,6 +378,7 @@ int initPager() {// initialize SX1276 with default settings
 
 // SETUP
 void setup() {
+    esp_core_dump_init();
     timer2 = millis();
     initBoard();
     sd1.setFS(SD);
@@ -385,7 +389,18 @@ void setup() {
         sd1.beginCSV("/CSVTEST");
         sd1.append("电池电压 %1.2fV\n", battery.readVoltage() * 2);
     }
+
+    // Process core dump.
+    readCoreDump();
+
     // Sync time.
+    rtc.begin();
+    rtc.getDateTime(time_info);
+    Serial.println(&time_info, "[eRTC] RTC Time %Y-%m-%d %H:%M:%S ");
+    sd1.append(2, "RTC时间 %d-%02d-%02d %02d:%02d:%02d\n", time_info.tm_year + 1900, time_info.tm_mon + 1,
+               time_info.tm_mday,
+               time_info.tm_hour, time_info.tm_min, time_info.tm_sec);
+    sd1.append(2, "调试等级 %d\n", LOG_VERBOSITY);
 
     sntp_set_time_sync_notification_cb(timeAvailable);
     sntp_servermode_dhcp(1);
@@ -539,17 +554,34 @@ void loop() {
         // Serial.printf("[D] NULLPTR [%llu]\n", millis() - timer1);
         initFmtVars();
         // Serial.printf("[D] INIT VARS [%llu]\n", millis() - timer1);
+        digitalWrite(BOARD_LED, LED_OFF);
+        // Serial.printf("[D] LED LOW [%llu]\n", millis() - timer1);
         changeCpuFreq(240);
         // Serial.printf("[D] FREQ CHANGED [%llu]\n", millis() - timer1);
         fd_state = TASK_INIT;
-        // Serial.printf("[D] LED LOW [%llu]\n", millis() - timer1);
-        digitalWrite(BOARD_LED, LED_OFF);
         timer1 = 0;
     } else if (fd_state == TASK_CREATE_FAILED) { // Handle create failure.
         initFmtVars();
         changeCpuFreq(240);
         timer1 = 0;
         fd_state = TASK_INIT;
+    }
+
+    if (Serial.available()) {
+        String in = Serial.readStringUntil('\r');
+        if (in == "ping")
+            Serial.println("$ Pong");
+        else if (in == "task state")
+            Serial.println("$ Task state " + String(fd_state));
+        else if (in == "rtc") {
+            rtc.getDateTime(time_info);
+            float temp = rtc.readTemperature();
+            Serial.print(&time_info, "$ [eRTC] %Y-%m-%d %H:%M:%S ");
+            Serial.printf("Temp: %.2f °C\n", temp);
+        } else if (in == "time") {
+            getLocalTime(&time_info, 1);
+            Serial.println(&time_info, "$ [SNTP] %Y-%m-%d %H:%M:%S ");
+        }
     }
 
     checkNetwork();
@@ -604,7 +636,7 @@ void loop() {
         changeCpuFreq(240);
         fd_state = TASK_INIT;
     } else if (millis() - timer1 >= FD_TASK_TIMEOUT && fd_state != TASK_INIT && timer1 != 0) {
-        Serial.printf("[Pager] Task state %d \n",fd_state);
+        Serial.printf("[Pager] Task state %d \n", fd_state);
         if (task_fd != nullptr) {
             vTaskDelete(task_fd);
             task_fd = nullptr;
@@ -630,32 +662,34 @@ void loop() {
     // 2 batches will usually be enough to fit short and medium messages
     if (pager.available() >= 2 && fd_state == TASK_INIT) { // todo add session timeout exception to prevent stuck here.
         // Serial.println("[PHY-LAYER][D] AVAILABLE > 2.");
+        setCpuFrequencyMhz(240);
+        db = new data_bond;
+        timer2 = millis();
+        timer4 = millis();
+        int state = pager.readDataMSA(db->pocsagData, 0);
 //        sd1.append("[PHY-LAYER][D] AVAILABLE > 2.\n");
         rxInfo.rssi = rxInfo.rssi / (float) rxInfo.cnt;
         rxInfo.cnt = 0;
         rxInfo.timer = 0;
-        timer2 = millis();
-        timer4 = millis();
-        setCpuFrequencyMhz(240);
+
 //        Serial.printf("CPU FREQ TO %d MHz\n",ets_get_cpu_frequency());
 
         // PagerClient::pocsag_data pocdat[POCDAT_SIZE];
         // struct lbj_data lbj;
-        db = new data_bond;
         // pd = new PagerClient::pocsag_data[POCDAT_SIZE];
 
         Serial.println(F("[Pager] Received pager data, decoding ... "));
+        sd1.append(2, "正在解码信号...\n");
 
         // you can read the data as an Arduino String
         // String str = {};
-
-        int state = pager.readDataMSA(db->pocsagData, 0);
 
         if (state == RADIOLIB_ERR_NONE) {
 //            Serial.printf("success.\n");
             digitalWrite(BOARD_LED, LED_ON);
             timer1 = millis();
 
+            sd1.append(2, "正在格式化输出...\n");
             // formatDataTask();
             auto x_ret = xTaskCreatePinnedToCore(formatDataTask, "task_fd",
                                                  FD_TASK_STACK_SIZE, nullptr,
@@ -663,6 +697,13 @@ void loop() {
             if (x_ret == pdPASS) {
                 fd_state = TASK_CREATED;
                 delay(1);
+            } else if (x_ret == errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY) {
+                Serial.printf("Mem left: %d Bytes\n", esp_get_free_heap_size());
+                dualPrintf(true, "[Pager] Format task memory allocation failure\n");
+                sd1.append("[Pager] Format task memory allocation failure, Mem left %d Bytes\n",
+                           esp_get_free_heap_size());
+                fd_state = TASK_CREATE_FAILED;
+                digitalWrite(BOARD_LED, LED_OFF);
             } else {
                 dualPrintf(true, "[Pager] Failed to create format task, errcode %d\n", x_ret);
                 sd1.append("[Pager] Failed to create format task, errcode %d\n", x_ret);
@@ -703,26 +744,31 @@ void initFmtVars() {
 
 void formatDataTask(void *pVoid) {
     fd_state = TASK_RUNNING;
+    sd1.append(2, "格式化任务已创建\n");
     for (auto &i: db->pocsagData) {
         if (i.is_empty)
             continue;
         Serial.printf("[D-pDATA] %d/%d: %s\n", i.addr, i.func, i.str.c_str());
+        sd1.append(2, "[D-pDATA] %d/%d: %s\n", i.addr, i.func, i.str.c_str());
         db->str = db->str + "  " + i.str;
     }
 
-    // Serial.printf("decode complete.[%llu]", millis() - timer2);
+    sd1.append(2, "原始数据输出完成，用时[%llu]\n", millis() - timer2);
+    Serial.printf("decode complete.[%llu]", millis() - timer2);
     readDataLBJ(db->pocsagData, &db->lbjData);
-    // Serial.printf("Read complete.[%llu]", millis() - timer2);
+    sd1.append(2, "LBJ读取完成，用时[%llu]\n", millis() - timer2);
+    Serial.printf("Read complete.[%llu]", millis() - timer2);
 
     printDataSerial(db->pocsagData, db->lbjData, rxInfo);
-    // Serial.printf("SPRINT complete.[%llu]", millis() - timer2);
+    sd1.append(2, "串口输出完成，用时[%llu]\n", millis() - timer2);
+    Serial.printf("SPRINT complete.[%llu]", millis() - timer2);
 
-    sd1.disableSizeCheck();
+    // sd1.disableSizeCheck();
     appendDataLog(db->pocsagData, db->lbjData, rxInfo);
-    // Serial.printf("sdprint complete.[%llu]", millis() - timer2);
+    Serial.printf("sdprint complete.[%llu]", millis() - timer2);
     appendDataCSV(db->pocsagData, db->lbjData, rxInfo);
-    // Serial.printf("csvprint complete.[%llu]", millis() - timer2);
-    sd1.enableSizeCheck();
+    Serial.printf("csvprint complete.[%llu]", millis() - timer2);
+    // sd1.enableSizeCheck();
 
     printDataTelnet(db->pocsagData, db->lbjData, rxInfo);
     // Serial.printf("telprint complete.[%llu]", millis() - timer2);
@@ -741,7 +787,9 @@ void formatDataTask(void *pVoid) {
     }
 #endif
     Serial.printf("[FD-Task] Stack High Mark %u\n", uxTaskGetStackHighWaterMark(nullptr));
-    sd1.append("[FD-Task] Stack High Mark %u\n", uxTaskGetStackHighWaterMark(nullptr));
+    sd1.append(2, "任务堆栈标 %u\n", uxTaskGetStackHighWaterMark(nullptr));
+    // sd1.append("[FD-Task] Stack High Mark %u\n", uxTaskGetStackHighWaterMark(nullptr));
+    sd1.append(2, "格式化输出任务完成，用时[%llu]\n", millis() - timer2);
     fd_state = TASK_DONE;
     task_fd = nullptr;
     vTaskDelete(nullptr);

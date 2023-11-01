@@ -100,7 +100,17 @@ bool CBCH3121::decode(uint32_t &data, uint16_t &errors) {
         if (S1_3 == m_S3) {
             // Correct single error
             data ^= (0x01U << (m_S1 + 1U));
-            errors += check_parity(data) + 1U;
+            errors = 1U;
+            // if (!calc_parity(data))
+            //     return true;
+            // else {
+            //     Serial.println("Parity check 1 failed.");
+            //     return false;
+            // }
+            auto var = calc_parity(data);
+            if (var)
+                Serial.println("Parity check 1 failed.");
+            errors += var + 1U;
             return true;
         } else { // More than 1 errors
 
@@ -146,7 +156,18 @@ bool CBCH3121::decode(uint32_t &data, uint16_t &errors) {
             data ^= (0x80000000U >> (locator[0U] - 1U));
             data ^= (0x80000000U >> (locator[1U] - 1U));
 
-            errors += check_parity(data) + 2U;
+            // errors = 2U;
+            //
+            // if (!calc_parity(data))
+            //     return true;
+            // else {
+            //     Serial.println("Parity check 2 failed.");
+            //     return false;
+            // }
+            auto var = calc_parity(data);
+            if (var)
+                Serial.println("Parity check 2 failed.");
+            errors += var + 2U;
 
             return true;
         }

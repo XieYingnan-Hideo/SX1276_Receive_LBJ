@@ -313,7 +313,7 @@ static const char *locos[] = { // todo try not to use static, we are running out
         // EMU
         "CRH1",
         "CRH2",
-        "",
+        "", // CRH3?
         "",
         "CRH5",
         "CRH380A",

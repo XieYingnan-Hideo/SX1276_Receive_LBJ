@@ -1,0 +1,25 @@
+DS3231 Arduino Library 1.1.0 / 19.05.2023
+=========================================
+
+ * Added loadDateTimeFromLong()
+ * Fixed alarm example sketch
+ * Fixed typos in readme
+ * Fixed strDaySufix()
+ * Fiexd setDateTime()
+ * Fixed daysInMonth()
+ * Add PlatformIO and Arduino library informations
+ * Change to MIT license
+ * General cleanups
+
+DS3231 Arduino Library 1.0.1 / 01.12.2014
+=========================================
+
+ * Fix time & square wave battery backup
+ * New function setBattery(bool timeBattery, bool squareBattery)
+ * setBattery(true, false) is default called on begin()
+
+DS3231 Arduino Library 1.0.0 / 27.04.2014
+=========================================
+
+ * First release
+

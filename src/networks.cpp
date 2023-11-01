@@ -73,9 +73,15 @@ void changeCpuFreq(uint32_t freq_mhz) {
 /* ------------------------------------------------ */
 
 void timeAvailable(struct timeval *t) {
+    tm ti2{};
     Serial.println("[SNTP] Got time adjustment from NTP!");
     getLocalTime(&time_info);
     Serial.println(&time_info, "[SNTP] %Y-%m-%d %H:%M:%S");
+    rtc.setDateTime(time_info);
+    auto timer = micros();
+    rtc.getDateTime(ti2);
+    Serial.print(&ti2, "[eRTC] Time set to %Y-%m-%d %H:%M:%S ");
+    Serial.printf("[%lu]\n", micros() - timer);
 }
 
 //void printLocalTime()
@@ -365,8 +371,9 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l) {
                         if (isdigit(l->loco[c]))
                             type += l->loco[c];
                     }
-                    if (type.length() == 3)
+                    if (type.length() == 3 && type.toInt() < (sizeof locos / sizeof locos[0]) && type.toInt() >= 0) {
                         l->loco_type = locos[std::stoi(type.c_str())];
+                    }
                 }
 
                 // positions lon
