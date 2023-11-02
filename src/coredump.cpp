@@ -34,10 +34,10 @@ void readCoreDump() {
 
                 for (unsigned char j: bf) {
                     char str_tmp[3];
-
                     sprintf(str_tmp, "%02x", j);
                     strcat(str_dst, str_tmp);
                 }
+
                 Serial.printf("%s", str_dst);
                 sd1.append("%s",str_dst);
                 sd1.appendCD(bf,sizeof bf);

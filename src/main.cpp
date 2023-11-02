@@ -52,7 +52,7 @@ uint64_t net_timer = 0;
 uint32_t ip_last = 0;
 bool is_startline = true;
 bool exec_init_f80 = false;
-bool agc_triggered = false;
+// bool agc_triggered = false;
 bool low_volt_warned = false;
 bool give_tel_rssi = false;
 bool give_tel_gain = false;
@@ -581,6 +581,11 @@ void loop() {
         } else if (in == "time") {
             getLocalTime(&time_info, 1);
             Serial.println(&time_info, "$ [SNTP] %Y-%m-%d %H:%M:%S ");
+        } else if (in == "cd") {
+            if (have_cd)
+                Serial.println("$ Core dump exported.");
+            else
+                Serial.println("$ No core dump.");
         }
     }
 
