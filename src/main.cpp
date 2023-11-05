@@ -68,6 +68,8 @@ DS3231 rtc;
 
 void formatDataTask(void *pVoid);
 
+void simpleFormatTask();
+
 void initFmtVars();
 
 TaskHandle_t task_fd;
@@ -397,7 +399,7 @@ void setup() {
     rtc.begin();
     rtc.getDateTime(time_info);
     Serial.println(&time_info, "[eRTC] RTC Time %Y-%m-%d %H:%M:%S ");
-    sd1.append(2, "RTC时间 %d-%02d-%02d %02d:%02d:%02d\n", time_info.tm_year + 1900, time_info.tm_mon + 1,
+    sd1.append("RTC时间 %d-%02d-%02d %02d:%02d:%02d\n", time_info.tm_year + 1900, time_info.tm_mon + 1,
                time_info.tm_mday,
                time_info.tm_hour, time_info.tm_min, time_info.tm_sec);
     sd1.append(2, "调试等级 %d\n", LOG_VERBOSITY);
@@ -708,6 +710,7 @@ void loop() {
                 sd1.append("[Pager] Format task memory allocation failure, Mem left %d Bytes\n",
                            esp_get_free_heap_size());
                 fd_state = TASK_CREATE_FAILED;
+                simpleFormatTask(); // todo: add task create retry
                 digitalWrite(BOARD_LED, LED_OFF);
             } else {
                 dualPrintf(true, "[Pager] Failed to create format task, errcode %d\n", x_ret);
@@ -798,5 +801,15 @@ void formatDataTask(void *pVoid) {
     fd_state = TASK_DONE;
     task_fd = nullptr;
     vTaskDelete(nullptr);
+}
+
+void simpleFormatTask() { // only output initially phrased data in case of memory shortage
+    for (auto &i: db->pocsagData) {
+        if (i.is_empty)
+            continue;
+        Serial.printf("[D-pDATA] %d/%d: %s\n", i.addr, i.func, i.str.c_str());
+        sd1.append("[D-pDATA] %d/%d: %s\n", i.addr, i.func, i.str.c_str());
+        db->str = db->str + "  " + i.str;
+    }
 }
 // END OF FILE.
