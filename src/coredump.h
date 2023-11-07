@@ -9,7 +9,7 @@
 #include "esp_core_dump.h"
 #include "sdlog.h"
 
-static bool have_cd = false;
+extern bool have_cd;
 
 void readCoreDump();
 

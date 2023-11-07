@@ -363,6 +363,7 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l) {
 
                 // locomotive registry number.
                 if (buffer.length() >= 12 && buffer[4] != 'X' && buffer[5] != 'X' && buffer[10] != 'X') {
+                    //fixme: buffer.length() seems cause crash occasionally, inspect later.
                     for (size_t c = 4, v = 0; c < 12; c++, v++) {
                         l->loco[v] = buffer[c];
                     }

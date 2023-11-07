@@ -278,12 +278,14 @@ int16_t PagerClient::readDataMSA(struct PagerClient::pocsag_data *p, size_t len)
         if (i && state == RADIOLIB_ERR_ADDRESS_NOT_FOUND) {
 //                Serial.println("ADDR NO MATCH");
             delete[] data;
+            data = nullptr;
             state = RADIOLIB_ERR_NONE;
             break;
         }
 
         if (i && state == RADIOLIB_ERR_MSG_CORRUPT) {
             delete[] data;
+            data = nullptr; // REMEMBER TO INITIALIZE POINTER AFTER DELETE!!!
             state = RADIOLIB_ERR_NONE;
             break;
         }
@@ -304,6 +306,7 @@ int16_t PagerClient::readDataMSA(struct PagerClient::pocsag_data *p, size_t len)
         }
 #if !defined(RADIOLIB_STATIC_ONLY)
         delete[] data;
+        data = nullptr;
 #endif
         if (state != RADIOLIB_ERR_NONE)
             break;

@@ -34,6 +34,7 @@
 
 #define FD_TASK_STACK_SIZE 68200
 #define FD_TASK_TIMEOUT 750 // ms
+#define FD_TASK_ATTEMPTS 3
 //region Variables
 SX1276 radio = new Module(RADIO_CS_PIN, RADIO_DIO0_PIN, RADIO_RST_PIN, RADIO_DIO1_PIN);
 // receiving packets requires connection
@@ -57,6 +58,7 @@ bool low_volt_warned = false;
 bool give_tel_rssi = false;
 bool give_tel_gain = false;
 bool no_wifi = false;
+bool have_cd = false;
 SD_LOG sd1;
 struct rx_info rxInfo;
 struct data_bond *db = nullptr;
@@ -179,6 +181,16 @@ void updateInfo() {
         low_volt_warned = true;
     }
     u8g2->drawStr(105, 64, buffer);
+    u8g2->sendBuffer();
+}
+
+void showSTR(const String &str) {
+    u8g2->setDrawColor(0);
+    u8g2->drawBox(0, 8, 128, 48);
+    u8g2->setDrawColor(1);
+    // u8g2->setFont(u8g2_font_wqy12_t_gb2312a);
+    u8g2->setFont(u8g2_font_squeezed_b7_tr);
+    pword(str.c_str(), 0, 19);
     u8g2->sendBuffer();
 }
 
@@ -328,28 +340,40 @@ void dualPrintln(const char *fmt) {
 }
 
 void LBJTEST() {
-    PagerClient::pocsag_data pocdat[16];
-    pocdat[0].str = "37012";
-    pocdat[0].addr = 1234000;
-    pocdat[0].func = 1;
-    pocdat[0].is_empty = false;
-    pocdat[0].len = 15;
-    pocdat[1].str = "20202350018530U)*9UU*6 (-(202011719040139058291000";
-    pocdat[1].addr = 1234002;
-    pocdat[1].func = 1;
-    pocdat[1].is_empty = false;
-    pocdat[1].len = 0;
+    // PagerClient::pocsag_data pocdat[16];
+    // pocdat[0].str = "37012";
+    // pocdat[0].addr = 1234000;
+    // pocdat[0].func = 1;
+    // pocdat[0].is_empty = false;
+    // pocdat[0].len = 15;
+    // pocdat[1].str = "20202350018530U)*9UU*6 (-(202011719040139058291000";
+    // pocdat[1].addr = 1234002;
+    // pocdat[1].func = 1;
+    // pocdat[1].is_empty = false;
+    // pocdat[1].len = 0;
 //    Serial.println("[LBJ] 测试输出 机车编号 位置 XX°XX′XX″ ");
 //    dualPrintf(false,"[LBJ] 测试输出 机车编号 位置 XX°XX′XX″ \n");
-    struct lbj_data lbj;
+//     struct lbj_data lbj;
 
-    readDataLBJ(pocdat, &lbj);
-    printDataSerial(pocdat, lbj, rxInfo);
-    appendDataLog(pocdat, lbj, rxInfo);
-    printDataTelnet(pocdat, lbj, rxInfo);
+    db = new data_bond;
+    db->pocsagData[0].addr = 1234000;
+    db->pocsagData[0].str = "37012  15  1504";
+    db->pocsagData[0].func = 1;
+    db->pocsagData[0].is_empty = false;
+    db->pocsagData[0].len = 15;
+    db->pocsagData[1].str = "20202350018530U)*9UU*6 (-(202011719040139058291000";
+    db->pocsagData[1].addr = 1234002;
+    db->pocsagData[1].func = 1;
+    db->pocsagData[1].is_empty = false;
+    db->pocsagData[1].len = 0;
+    // readDataLBJ(pocdat, &lbj);
+    // printDataSerial(pocdat, lbj, rxInfo);
+    // appendDataLog(pocdat, lbj, rxInfo);
+    // printDataTelnet(pocdat, lbj, rxInfo);
+    simpleFormatTask();
     rxInfo.rssi = 0;
     rxInfo.fer = 0;
-
+    delete db;
 }
 
 int initPager() {// initialize SX1276 with default settings
@@ -461,7 +485,7 @@ void setup() {
     }
 
     // test stuff
-//    LBJTEST();
+    // LBJTEST();
 //     Serial.printf("CPU FREQ %d MHz\n",ets_get_cpu_frequency());
 
 }
@@ -705,12 +729,23 @@ void loop() {
                 fd_state = TASK_CREATED;
                 delay(1);
             } else if (x_ret == errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY) {
+                for (int i = 0; i < FD_TASK_ATTEMPTS; ++i) { // todo: can this retry work?
+                    auto x_ret1 = xTaskCreatePinnedToCore(formatDataTask, "task_fd",
+                                                          FD_TASK_STACK_SIZE, nullptr,
+                                                          2, &task_fd, ARDUINO_RUNNING_CORE);
+                    if (x_ret1 == pdPASS)
+                        break;
+                    Serial.printf("[Pager] FTask failed memory allocation, error %d, mem left %d B, retry %d\n",
+                                  x_ret1, esp_get_free_heap_size(), i);
+                    sd1.append("[Pager] FTask failed memory allocation, error %d, mem left %d B, retry %d\n",
+                               x_ret1, esp_get_free_heap_size(), i);
+                }
                 Serial.printf("Mem left: %d Bytes\n", esp_get_free_heap_size());
                 dualPrintf(true, "[Pager] Format task memory allocation failure\n");
                 sd1.append("[Pager] Format task memory allocation failure, Mem left %d Bytes\n",
                            esp_get_free_heap_size());
                 fd_state = TASK_CREATE_FAILED;
-                simpleFormatTask(); // todo: add task create retry
+                simpleFormatTask();
                 digitalWrite(BOARD_LED, LED_OFF);
             } else {
                 dualPrintf(true, "[Pager] Failed to create format task, errcode %d\n", x_ret);
@@ -809,7 +844,10 @@ void simpleFormatTask() { // only output initially phrased data in case of memor
             continue;
         Serial.printf("[D-pDATA] %d/%d: %s\n", i.addr, i.func, i.str.c_str());
         sd1.append("[D-pDATA] %d/%d: %s\n", i.addr, i.func, i.str.c_str());
-        db->str = db->str + "  " + i.str;
+        // db->str = db->str + "  " + i.str;
+        db->str += String(i.addr) + "/" + String(i.func) + ":" + i.str + "\n ";
     }
+    // pword(db->str.c_str(),20,50);
+    showSTR(db->str);
 }
 // END OF FILE.
