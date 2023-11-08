@@ -2,7 +2,7 @@
 // Created by FLN1021 on 2023/9/10.
 //
 
-#include "boards.h"
+#include "boards.hpp"
 
 DISPLAY_MODEL *u8g2 = nullptr;
 ESP32AnalogRead battery;

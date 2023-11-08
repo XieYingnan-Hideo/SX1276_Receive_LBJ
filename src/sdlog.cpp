@@ -2,7 +2,7 @@
 // Created by FLN1021 on 2023/9/5.
 //
 
-#include "sdlog.h"
+#include "sdlog.hpp"
 
 // Initialize static variables.
 // File SD_LOG::log;

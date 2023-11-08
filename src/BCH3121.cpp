@@ -19,7 +19,7 @@
 // #include "Config.h"
 // #include "Globals.h"
 #include <Arduino.h>
-#include "BCH3121.h"
+#include "BCH3121.hpp"
 
 /*
  *   This is a BCH(31,21) implementation, designed for POCSAG

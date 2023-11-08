@@ -22,18 +22,19 @@
 */
 #pragma execution_character_set("utf-8")
 // include the library
-#include "boards.h"
+#include "boards.hpp"
 #include <RadioLib.h>
 #include <WiFi.h>
-#include "esp_sntp.h"
-#include "networks.h"
+#include <esp_sntp.h>
+#include "networks.hpp"
 #include "coredump.h"
-#include "sdlog.h"
+#include "sdlog.hpp"
 #include "customfont.h"
-#include "esp_core_dump.h"
+#include <esp_core_dump.h>
+#include <esp_task_wdt.h>
 
 #define FD_TASK_STACK_SIZE 68200
-#define FD_TASK_TIMEOUT 750 // ms
+#define FD_TASK_TIMEOUT 1000 // ms
 #define FD_TASK_ATTEMPTS 3
 //region Variables
 SX1276 radio = new Module(RADIO_CS_PIN, RADIO_DIO0_PIN, RADIO_RST_PIN, RADIO_DIO1_PIN);

@@ -2,8 +2,8 @@
 // Created by FLN1021 on 2023/9/5.
 //
 
-#ifndef PAGER_RECEIVE_SDLOG_H
-#define PAGER_RECEIVE_SDLOG_H
+#ifndef PAGER_RECEIVE_SDLOG_HPP
+#define PAGER_RECEIVE_SDLOG_HPP
 
 #include <SD.h>
 #include <FS.h>
@@ -11,7 +11,7 @@
 #include <ctime>
 #include "utilities.h"
 #include "ESPTelnet.h"
-#include "boards.h"
+#include "boards.hpp"
 
 #define MAX_LOG_SIZE 500000 // 500000 default
 #define MAX_CSV_SIZE 500000
@@ -100,4 +100,4 @@ private:
 };
 
 
-#endif //PAGER_RECEIVE_SDLOG_H
+#endif //PAGER_RECEIVE_SDLOG_HPP

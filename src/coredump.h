@@ -5,9 +5,9 @@
 #ifndef PAGER_RECEIVE_COREDUMP_H
 #define PAGER_RECEIVE_COREDUMP_H
 
-#include "networks.h"
+#include "networks.hpp"
 #include "esp_core_dump.h"
-#include "sdlog.h"
+#include "sdlog.hpp"
 
 extern bool have_cd;
 

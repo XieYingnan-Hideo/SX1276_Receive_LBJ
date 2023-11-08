@@ -1,7 +1,7 @@
 #include<Arduino.h>
 #include<RadioLib.h>
-#include "BCH3121.h"
-#include "networks.h"
+#include "BCH3121.hpp"
+#include "networks.hpp"
 
 
 int16_t PagerClient::readDataMod(String &str, size_t len, uint32_t *addr, uint32_t *func, bool *add, size_t *clen) {

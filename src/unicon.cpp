@@ -2,7 +2,7 @@
 // Created by FLN1021 on 2023/9/4.
 //
 
-#include "unicon.h"
+#include "unicon.hpp"
 
 
  const WCHAR oem2uni936[] = {	/* GBK --> Unicode pairs */

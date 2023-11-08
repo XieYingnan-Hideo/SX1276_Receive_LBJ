@@ -2,8 +2,8 @@
 // Created by FLN1021 on 2023/9/2.
 //
 
-#ifndef PAGER_RECEIVE_NETWORKS_H
-#define PAGER_RECEIVE_NETWORKS_H
+#ifndef PAGER_RECEIVE_NETWORKS_HPP
+#define PAGER_RECEIVE_NETWORKS_HPP
 
 #include <WiFi.h>
 #include <ctime>
@@ -11,9 +11,9 @@
 #include "esp_sntp.h"
 #include "ESPTelnet.h"
 #include <RadioLib.h>
-#include "unicon.h"
-#include "sdlog.h"
-#include "boards.h"
+#include "unicon.hpp"
+#include "sdlog.hpp"
+#include "boards.hpp"
 #include "loco.h"
 #include "freertos/FreeRTOS.h"
 
@@ -131,4 +131,4 @@ void printDataTelnet(PagerClient::pocsag_data *p, const struct lbj_data &l, cons
 
 void appendDataCSV(PagerClient::pocsag_data *p, const struct lbj_data &l, const struct rx_info &r);
 
-#endif //PAGER_RECEIVE_NETWORKS_H
+#endif //PAGER_RECEIVE_NETWORKS_HPP
