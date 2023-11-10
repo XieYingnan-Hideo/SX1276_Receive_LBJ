@@ -85,7 +85,8 @@ enum task_states {
     TASK_RUNNING = 2,
     TASK_DONE = 3,
     TASK_TERMINATED = 4,
-    TASK_CREATE_FAILED = 5
+    TASK_CREATE_FAILED = 5,
+    TASK_RUNNING_SCREEN = 6
 };
 
 task_states fd_state;
@@ -695,7 +696,8 @@ void loop() {
         timer1 = 0;
         changeCpuFreq(240);
         fd_state = TASK_INIT;
-    } else if (millis() - timer1 >= FD_TASK_TIMEOUT && fd_state != TASK_INIT && timer1 != 0) {
+    } else if (millis() - timer1 >= FD_TASK_TIMEOUT && fd_state != TASK_INIT && timer1 != 0 &&
+               fd_state != TASK_RUNNING_SCREEN) { // terminate task while u8g2 operation causes main loop stuck.
         Serial.printf("[Pager] Task state %d \n", fd_state);
         if (task_fd != nullptr) {
             vTaskDelete(task_fd);
@@ -853,6 +855,7 @@ void formatDataTask(void *pVoid) {
 // Serial.printf("type %d \n",lbj.type);
 
 #ifdef HAS_DISPLAY
+    fd_state = TASK_RUNNING_SCREEN;
     if (u8g2) {
         if (db->lbjData.type == 0)
             showLBJ0(db->lbjData);
