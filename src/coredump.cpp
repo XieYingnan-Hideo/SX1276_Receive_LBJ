@@ -19,9 +19,9 @@ void readCoreDump() {
             char str_dst[640];
             size_t toRead;
             // "-------------------------------------------------"
-            Serial.println("[CoreDump] ========================= BEGIN COREDUMP =========================");
             sd1.append("========================= BEGIN COREDUMP =========================\n");
             sd1.beginCD("/COREDUMP");
+            Serial.println("[CoreDump] ========================= BEGIN COREDUMP =========================");
             for (size_t i = 0; i < (size / 256) + 1; i++) {
                 strcpy(str_dst, "");
                 toRead = (size - i * 256) > 256 ? 256 : (size - i * 256);
@@ -39,12 +39,12 @@ void readCoreDump() {
                 }
 
                 Serial.printf("%s", str_dst);
-                sd1.append("%s",str_dst);
-                sd1.appendCD(bf,sizeof bf);
+                sd1.append("%s", str_dst);
+                sd1.appendCD(bf, sizeof bf);
             }
             sd1.append("\n========================= END COREDUMP =========================\n");
             sd1.endCD();
-            Serial.println("[CoreDump] ========================= END COREDUMP =========================");
+            Serial.println("\n[CoreDump] ========================= END COREDUMP =========================");
         } else {
             Serial.println("[CoreDump] Core dump partition not found.");
         }

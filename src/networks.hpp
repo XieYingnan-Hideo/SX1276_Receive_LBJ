@@ -93,6 +93,10 @@ void changeCpuFreq(uint32_t freq_mhz);
 
 void timeAvailable(struct timeval *t);
 
+void timeSync(struct tm &time);
+
+char *fmtime(const struct tm &time);
+
 void onTelnetConnect(String ip);
 
 void onTelnetDisconnect(String ip);

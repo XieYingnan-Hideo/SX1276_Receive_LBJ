@@ -94,6 +94,19 @@ void timeAvailable(struct timeval *t) {
 //    Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
 //}
 
+void timeSync(struct tm &time) {
+    time_t t = mktime(&time);
+    struct timeval now = {.tv_sec = t};
+    settimeofday(&now, nullptr);
+}
+
+char *fmtime(const struct tm &time) {
+    static char buffer[20];
+    sprintf(buffer, "%d-%02d-%02d %02d:%02d:%02d", time.tm_year + 1900, time.tm_mon + 1, time.tm_mday, time.tm_hour,
+            time.tm_min, time.tm_sec);
+    return buffer;
+}
+
 /* ------------------------------------------------ */
 
 // (optional) callback functions for telnet events

@@ -30,9 +30,11 @@
 #include "coredump.h"
 #include "sdlog.hpp"
 #include "customfont.h"
-#include <esp_core_dump.h>
+// #include <esp_core_dump.h>
 #include <esp_task_wdt.h>
 
+#define WDT_TIMEOUT 20 // sec
+// #define WDT_RST_PERIOD 4000 // ms
 #define FD_TASK_STACK_SIZE 68200
 #define FD_TASK_TIMEOUT 1000 // ms
 #define FD_TASK_ATTEMPTS 3
@@ -50,6 +52,7 @@ uint64_t timer1 = 0;
 uint64_t timer2 = 0;
 uint64_t timer3 = 0;
 uint64_t timer4 = 0;
+// uint64_t wdt_timer = 0;
 uint64_t net_timer = 0;
 uint32_t ip_last = 0;
 bool is_startline = true;
@@ -417,6 +420,11 @@ void setup() {
         sd1.append("电池电压 %1.2fV\n", battery.readVoltage() * 2);
     }
 
+    // start thread watchdog
+    esp_task_wdt_init(WDT_TIMEOUT, true);
+    esp_task_wdt_add(nullptr);
+    // wdt_timer = millis();
+
     // Process core dump.
     readCoreDump();
 
@@ -432,6 +440,8 @@ void setup() {
     sntp_set_time_sync_notification_cb(timeAvailable);
     sntp_servermode_dhcp(1);
     configTzTime(time_zone, ntpServer1, ntpServer2);
+    timeSync(time_info); // sync system time from rtc
+    Serial.printf("SYS Time %s\n", fmtime(time_info));
 
     if (u8g2) {
         showInitComp();
@@ -487,6 +497,14 @@ void setup() {
 
     // test stuff
     // LBJTEST();
+    // auto *test = new uint8_t[32];
+    // Serial.printf("[D] test addr %p\n",test);
+    // delete[] test;
+    // Serial.printf("[D] test addr %p\n",test);
+    // test = nullptr;
+    // Serial.printf("[D] test addr %p\n",test);
+    // delete[] test;
+    // delete[] test;
 //     Serial.printf("CPU FREQ %d MHz\n",ets_get_cpu_frequency());
 
 }
@@ -570,6 +588,16 @@ void checkNetwork() {
 
 // LOOP
 void loop() {
+    // reset watchdog
+    esp_task_wdt_reset();
+    // if (millis() - wdt_timer >= WDT_RST_PERIOD) {
+    //     uint64_t t = micros();
+    //     auto r = esp_task_wdt_reset();
+    //     t = micros() - t;
+    //     wdt_timer = millis();
+    //     Serial.printf("WDT_RST %d [%llu]\n",r,t);
+    // }
+
     // if task complete, de-initialize
     if (fd_state == TASK_DONE) {
         if (task_fd != nullptr) {
@@ -730,24 +758,30 @@ void loop() {
                 fd_state = TASK_CREATED;
                 delay(1);
             } else if (x_ret == errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY) {
+                int x_ret1;
                 for (int i = 0; i < FD_TASK_ATTEMPTS; ++i) { // todo: can this retry work?
-                    auto x_ret1 = xTaskCreatePinnedToCore(formatDataTask, "task_fd",
-                                                          FD_TASK_STACK_SIZE, nullptr,
-                                                          2, &task_fd, ARDUINO_RUNNING_CORE);
-                    if (x_ret1 == pdPASS)
+                    x_ret1 = xTaskCreatePinnedToCore(formatDataTask, "task_fd",
+                                                     FD_TASK_STACK_SIZE, nullptr,
+                                                     2, &task_fd, ARDUINO_RUNNING_CORE);
+                    if (x_ret1 == pdPASS) {
+                        fd_state = TASK_CREATED;
+                        delay(1);
                         break;
+                    }
                     Serial.printf("[Pager] FTask failed memory allocation, error %d, mem left %d B, retry %d\n",
                                   x_ret1, esp_get_free_heap_size(), i);
                     sd1.append("[Pager] FTask failed memory allocation, error %d, mem left %d B, retry %d\n",
                                x_ret1, esp_get_free_heap_size(), i);
                 }
-                Serial.printf("Mem left: %d Bytes\n", esp_get_free_heap_size());
-                dualPrintf(true, "[Pager] Format task memory allocation failure\n");
-                sd1.append("[Pager] Format task memory allocation failure, Mem left %d Bytes\n",
-                           esp_get_free_heap_size());
-                fd_state = TASK_CREATE_FAILED;
-                simpleFormatTask();
-                digitalWrite(BOARD_LED, LED_OFF);
+                if (x_ret1 != pdPASS) {
+                    Serial.printf("Mem left: %d Bytes\n", esp_get_free_heap_size());
+                    dualPrintf(true, "[Pager] Format task memory allocation failure\n");
+                    sd1.append("[Pager] Format task memory allocation failure, Mem left %d Bytes\n",
+                               esp_get_free_heap_size());
+                    fd_state = TASK_CREATE_FAILED;
+                    simpleFormatTask();
+                    digitalWrite(BOARD_LED, LED_OFF);
+                }
             } else {
                 dualPrintf(true, "[Pager] Failed to create format task, errcode %d\n", x_ret);
                 sd1.append("[Pager] Failed to create format task, errcode %d\n", x_ret);

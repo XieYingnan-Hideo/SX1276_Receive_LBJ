@@ -255,9 +255,9 @@ int16_t PagerClient::readDataMSA(struct PagerClient::pocsag_data *p, size_t len)
     for (size_t i = 0; i < POCDAT_SIZE; i++) {
         // determine the message length, based on user input or the amount of received data
         size_t length = len;
-        if (length == 0) {
+        if (len == 0) {
             // one batch can contain at most 80 message symbols
-            length = available() * 80;
+            len = available() * 80;
         }
 
         if (complete)
@@ -267,25 +267,29 @@ int16_t PagerClient::readDataMSA(struct PagerClient::pocsag_data *p, size_t len)
 #if defined(RADIOLIB_STATIC_ONLY)
         uint8_t data[RADIOLIB_STATIC_ARRAY_SIZE + 1];
 #else
-        auto *data = new uint8_t[length + 1];
-        if (!data) {
-            return (RADIOLIB_ERR_MEMORY_ALLOCATION_FAILED);
-        }
+        // auto *data = new uint8_t[len + 1];
+        // if (!data) {
+        //     return (RADIOLIB_ERR_MEMORY_ALLOCATION_FAILED);
+        // }
 #endif
+        uint8_t data[len + 1];
+
         state = readDataMA(data, &length, &p[i].addr, &p[i].func, &framePos, &addr_next, &p[i].is_empty,
                            &complete, &p[i].errs_total, &p[i].errs_uncorrected);
 
         if (i && state == RADIOLIB_ERR_ADDRESS_NOT_FOUND) {
 //                Serial.println("ADDR NO MATCH");
-            delete[] data;
-            data = nullptr;
+//             delete[] data;
+//             data = nullptr;
             state = RADIOLIB_ERR_NONE;
             break;
         }
 
         if (i && state == RADIOLIB_ERR_MSG_CORRUPT) {
-            delete[] data;
-            data = nullptr; // REMEMBER TO INITIALIZE POINTER AFTER DELETE!!!
+            Serial.printf("[D] MSG%d CORRUPT.\n", i);
+            // Serial.printf("[D] data[] len %d, message len %d, data addr %p\n", len + 1, length, data);
+            // delete[] data; // FIXME: Due to unknown reason crash often occurs here. try solve this problem.
+            // data = nullptr; // REMEMBER TO INITIALIZE POINTER AFTER DELETE!!!
             state = RADIOLIB_ERR_NONE;
             break;
         }
@@ -305,8 +309,8 @@ int16_t PagerClient::readDataMSA(struct PagerClient::pocsag_data *p, size_t len)
 
         }
 #if !defined(RADIOLIB_STATIC_ONLY)
-        delete[] data;
-        data = nullptr;
+        // delete[] data;
+        // data = nullptr;
 #endif
         if (state != RADIOLIB_ERR_NONE)
             break;
