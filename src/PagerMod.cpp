@@ -288,7 +288,8 @@ int16_t PagerClient::readDataMSA(struct PagerClient::pocsag_data *p, size_t len)
         if (i && state == RADIOLIB_ERR_MSG_CORRUPT) {
             Serial.printf("[D] MSG%d CORRUPT.\n", i);
             // Serial.printf("[D] data[] len %d, message len %d, data addr %p\n", len + 1, length, data);
-            // delete[] data; // FIXME: Due to unknown reason crash often occurs here. try solve this problem.
+            // delete[] data; // Due to unknown reason crash often occurs here.
+            // Fixed by stop using new and delete...no choice, sorry.
             // data = nullptr; // REMEMBER TO INITIALIZE POINTER AFTER DELETE!!!
             state = RADIOLIB_ERR_NONE;
             break;

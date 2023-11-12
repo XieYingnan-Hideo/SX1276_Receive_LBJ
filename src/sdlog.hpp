@@ -59,6 +59,10 @@ public:
 
     void reopen();
 
+    void end();
+
+    static void reopenSD();
+
     void disableSizeCheck();
 
     void enableSizeCheck();

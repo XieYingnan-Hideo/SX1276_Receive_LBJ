@@ -6,7 +6,7 @@
 #define PAGER_RECEIVE_COREDUMP_H
 
 #include "networks.hpp"
-#include "esp_core_dump.h"
+#include <esp_core_dump.h>
 #include "sdlog.hpp"
 
 extern bool have_cd;

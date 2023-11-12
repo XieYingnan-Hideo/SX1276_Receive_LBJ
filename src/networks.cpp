@@ -77,11 +77,13 @@ void timeAvailable(struct timeval *t) {
     Serial.println("[SNTP] Got time adjustment from NTP!");
     getLocalTime(&time_info);
     Serial.println(&time_info, "[SNTP] %Y-%m-%d %H:%M:%S");
+#ifdef HAS_RTC
     rtc.setDateTime(time_info);
     auto timer = micros();
     rtc.getDateTime(ti2);
     Serial.print(&ti2, "[eRTC] Time set to %Y-%m-%d %H:%M:%S ");
     Serial.printf("[%lu]\n", micros() - timer);
+#endif
 }
 
 //void printLocalTime()

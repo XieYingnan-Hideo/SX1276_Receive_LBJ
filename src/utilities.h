@@ -138,6 +138,7 @@
 
 #define HAS_SDCARD
 #define HAS_DISPLAY
+#define HAS_RTC // soldered an external DS3231 module.
 
 #elif defined(LILYGO_T3_V2_0)
 #define I2C_SDA                     21

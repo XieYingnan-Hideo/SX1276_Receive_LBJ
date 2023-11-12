@@ -228,11 +228,13 @@ void SD_LOG::appendCSV(const char *format, ...) { // TODO: maybe implement item 
 }
 
 void SD_LOG::append(const char *format, ...) {
+    // Serial.printf("[D] Using log %s\n", log_path.c_str());
     if (!sd_log) {
+        // Serial.println("[D] sd_log false.");
         return;
     }
     if (!filesys->exists(log_path)) {
-        Serial.println("[SDLOG] Log file unavailable!");
+        Serial.printf("[SDLOG] Log file %s unavailable!\n", log_path.c_str());
         sd_log = false;
         SD.end();
         return;
@@ -405,7 +407,7 @@ File SD_LOG::logFile(char op) {
 
 void SD_LOG::printTel(unsigned int chars, ESPTelnet &tel) {
     log.close();
-    uint32_t pos,left{};
+    uint32_t pos, left{};
     File log_r = filesys->open(log_path, "r");
     if (chars < log_r.size())
         pos = log_r.size() - chars;
@@ -514,13 +516,29 @@ int SD_LOG::beginCD(const char *path) {
 void SD_LOG::appendCD(const uint8_t *data, size_t size) {
     if (!sd_cd)
         return;
-    cd.write(data,size);
+    cd.write(data, size);
 }
 
 void SD_LOG::endCD() {
     if (!sd_cd)
         return;
-    append("内核转储文件已保存至 %s\n",cd.name());
+    append("内核转储文件已保存至 %s\n", cd.name());
     cd.close();
     sd_cd = false;
+}
+
+void SD_LOG::end() {
+    if (!sd_log)
+        return;
+    SD.end();
+    log.close();
+    csv.close();
+    sd_csv = false;
+    sd_log = false;
+}
+
+void SD_LOG::reopenSD() {
+    SD.begin(SDCARD_CS, SDSPI);
+    // sd_csv = true;
+    // sd_log = true;
 }

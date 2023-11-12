@@ -4,11 +4,18 @@
 
 #include "boards.hpp"
 
+#ifdef HAS_DISPLAY
 DISPLAY_MODEL *u8g2 = nullptr;
+#endif
+
 ESP32AnalogRead battery;
 float voltage;
 SPIClass SDSPI(HSPI);
 bool have_sd = false;
+
+#ifdef HAS_RTC
+DS3231 rtc;
+#endif
 
 void initBoard() {
     Serial.begin(115200);
@@ -44,8 +51,9 @@ void initBoard() {
     digitalWrite(OLED_RST, HIGH); delay(20);
 #endif
 
+#if defined(HAS_PMU)
     initPMU();
-
+#endif
 
 #ifdef BOARD_LED
     /*
@@ -156,6 +164,10 @@ void initBoard() {
         } while (u8g2->nextPage());
         // delay(5000);
     }
+#endif
+
+#ifdef HAS_RTC
+    rtc.begin();
 #endif
 
 }
