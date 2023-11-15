@@ -30,7 +30,7 @@
 
 #define WDT_TIMEOUT 20 // sec
 // #define WDT_RST_PERIOD 4000 // ms
-#define FD_TASK_STACK_SIZE 8192 // 68200
+#define FD_TASK_STACK_SIZE 3000 // 68200
 #define FD_TASK_TIMEOUT 750 // ms
 #define FD_TASK_ATTEMPTS 3
 #define LED_ON_TIME 200 // ms
@@ -613,13 +613,13 @@ void loop() {
         // Serial.printf("[D] INIT VARS [%llu]\n", millis() - format_task_timer);
         // digitalWrite(BOARD_LED, LED_OFF);
         // Serial.printf("[D] LED LOW [%llu]\n", millis() - format_task_timer);
-        changeCpuFreq(240);
+        // changeCpuFreq(240);
         // Serial.printf("[D] FREQ CHANGED [%llu]\n", millis() - format_task_timer);
         fd_state = TASK_INIT;
         format_task_timer = 0;
     } else if (fd_state == TASK_CREATE_FAILED) { // Handle create failure.
         initFmtVars();
-        changeCpuFreq(240);
+        // changeCpuFreq(240);
         format_task_timer = 0;
         fd_state = TASK_INIT;
     }
@@ -627,6 +627,7 @@ void loop() {
     if (millis() - led_timer > LED_ON_TIME && led_timer != 0 && fd_state == TASK_INIT) {
         digitalWrite(BOARD_LED, LED_OFF);
         led_timer = 0;
+        changeCpuFreq(240);
     }
 
     handleSerialInput();
@@ -866,7 +867,7 @@ void initFmtVars() {
 
 void formatDataTask(void *pVoid) {
     fd_state = TASK_RUNNING;
-    Serial.printf("[FD-Task] Stack High Mark Begin %u\n", uxTaskGetStackHighWaterMark(nullptr));
+    // Serial.printf("[FD-Task] Stack High Mark Begin %u\n", uxTaskGetStackHighWaterMark(nullptr));
     sd1.append(2, "格式化任务已创建\n");
     for (auto &i: db->pocsagData) {
         if (i.is_empty)
@@ -876,13 +877,13 @@ void formatDataTask(void *pVoid) {
         db->str = db->str + "  " + i.str;
     }
 
-    Serial.printf("[FD-Task] Stack High Mark pDATA %u\n", uxTaskGetStackHighWaterMark(nullptr));
+    // Serial.printf("[FD-Task] Stack High Mark pDATA %u\n", uxTaskGetStackHighWaterMark(nullptr));
     sd1.append(2, "原始数据输出完成，用时[%llu]\n", millis() - runtime_timer);
     Serial.printf("decode complete.[%llu]", millis() - runtime_timer);
     readDataLBJ(db->pocsagData, &db->lbjData);
     sd1.append(2, "LBJ读取完成，用时[%llu]\n", millis() - runtime_timer);
     Serial.printf("Read complete.[%llu]", millis() - runtime_timer);
-    Serial.printf("[FD-Task] Stack High Mark rLBJ %u\n", uxTaskGetStackHighWaterMark(nullptr));
+    // Serial.printf("[FD-Task] Stack High Mark rLBJ %u\n", uxTaskGetStackHighWaterMark(nullptr));
 
     printDataSerial(db->pocsagData, db->lbjData, rxInfo);
     sd1.append(2, "串口输出完成，用时[%llu]\n", millis() - runtime_timer);
@@ -897,7 +898,7 @@ void formatDataTask(void *pVoid) {
 
     printDataTelnet(db->pocsagData, db->lbjData, rxInfo);
     // Serial.printf("telprint complete.[%llu]", millis() - runtime_timer);
-    Serial.printf("[FD-Task] Stack High Mark TRI-OUT %u\n", uxTaskGetStackHighWaterMark(nullptr));
+    // Serial.printf("[FD-Task] Stack High Mark TRI-OUT %u\n", uxTaskGetStackHighWaterMark(nullptr));
 // Serial.printf("type %d \n",lbj.type);
 
 #ifdef HAS_DISPLAY
@@ -915,7 +916,7 @@ void formatDataTask(void *pVoid) {
 #endif
     Serial.printf("[FD-Task] Stack High Mark %u\n", uxTaskGetStackHighWaterMark(nullptr));
     sd1.append(2, "任务堆栈标 %u\n", uxTaskGetStackHighWaterMark(nullptr));
-    sd1.append("[FD-Task] Stack High Mark %u\n", uxTaskGetStackHighWaterMark(nullptr));
+    // sd1.append("[FD-Task] Stack High Mark %u\n", uxTaskGetStackHighWaterMark(nullptr));
     sd1.append(2, "格式化输出任务完成，用时[%llu]\n", millis() - runtime_timer);
     fd_state = TASK_DONE;
     task_fd = nullptr;

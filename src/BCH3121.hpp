@@ -25,7 +25,7 @@ public:
 
     void encode(uint32_t &data);
 
-    bool decode(uint32_t &data, uint16_t &errors);
+    bool decode(uint32_t &data, uint16_t &errors, bool &parity);
 
 private:
     void calc_syndrome(uint32_t data);

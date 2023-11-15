@@ -78,6 +78,7 @@ void timeAvailable(struct timeval *t) {
     getLocalTime(&time_info);
     Serial.println(&time_info, "[SNTP] %Y-%m-%d %H:%M:%S");
 #ifdef HAS_RTC
+    getLocalTime(&time_info);
     rtc.setDateTime(time_info);
     auto timer = micros();
     rtc.getDateTime(ti2);
