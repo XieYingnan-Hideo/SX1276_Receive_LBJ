@@ -273,6 +273,7 @@ int16_t PagerClient::readDataMA(uint8_t *data, size_t *len, uint32_t *addr, uint
     // we have the address, start pulling out the message
 //    bool complete = false;
     size_t decodedBytes = 0;
+    size_t deco = 0;
     uint32_t prevCw = 0;
     bool overflow = false;
     int8_t ovfBits = 0;
@@ -314,6 +315,8 @@ int16_t PagerClient::readDataMA(uint8_t *data, size_t *len, uint32_t *addr, uint
                     *errs_uncorrected += errors - err_prev;
                     if (!is_sync) {
                         *errs_total = errors;
+                        if (deco != 0)
+                            goto end;
                         return (RADIOLIB_ERR_MSG_CORRUPT);
                     }
                     parity_check = true;
@@ -332,6 +335,8 @@ int16_t PagerClient::readDataMA(uint8_t *data, size_t *len, uint32_t *addr, uint
             // Serial.printf("BCH Failed. ERR %d \n", errors);
             if (!is_sync) {
                 *errs_total = errors;
+                if (deco != 0)
+                    goto end;
                 return (RADIOLIB_ERR_MSG_CORRUPT);
             }
             is_sync = false;
@@ -372,7 +377,7 @@ int16_t PagerClient::readDataMA(uint8_t *data, size_t *len, uint32_t *addr, uint
         // check overflow from previous code word
         uint8_t bitPos = RADIOLIB_PAGER_CODE_WORD_LEN - 1 - symbolLength;
 //        Serial.println("GOT DATA.");
-//         Serial.printf("RAW CW %X \n", cw);
+        Serial.printf("RAW CW %X \n", cw);
         if (overflow) {
             overflow = false;
 
@@ -398,6 +403,7 @@ int16_t PagerClient::readDataMA(uint8_t *data, size_t *len, uint32_t *addr, uint
             }
 //            Serial.printf("DE LEN %d \n",decodedBytes);
             data[decodedBytes++] = symbol;
+            deco++;
 
             // adjust the bit position of the next message symbol
             bitPos += ovfBits;
@@ -432,6 +438,7 @@ int16_t PagerClient::readDataMA(uint8_t *data, size_t *len, uint32_t *addr, uint
     }
 
     // save the number of decoded bytes
+    end:
     *len = decodedBytes;
     *errs_total = errors;
     return (RADIOLIB_ERR_NONE);

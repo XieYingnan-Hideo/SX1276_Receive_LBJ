@@ -286,7 +286,7 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l) {
             continue;
         switch (p[i].addr) {
             case LBJ_INFO_ADDR: {
-                if (!p[i].func && (p[i].str[0] == '-' || p[i].str[0] == '*') &&
+                if (!p[i].func && p[i].len == 5 && (p[i].str[0] == '-' || p[i].str[0] == '*') &&
                     (p[i].str[1] && p[i].str[2] && p[i].str[3] && p[i].str[4] != '-')) {
 
                     p[i].addr = LBJ_SYNC_ADDR; // don't know if addr = 1234008 can perform this.
@@ -429,22 +429,18 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l) {
                     // this is very likely the most ugly code I've ever written, I apologize for that.
                     size_t c = 0;
                     for (size_t v = 0; v < 3; v++, c++) {
-                        int a = isdigit(l->info2_hex[v]) ? (l->info2_hex[v] - '0') : (l->info2_hex[v] - '0' - 7),
-                                b = isdigit(l->info2_hex[v + 1]) ? (l->info2_hex[++v] - '0') : (l->info2_hex[++v] -
-                                                                                                '0' - 7);
-                        auto ch = (int8_t) ((a << 4) | b);
+                        int8_t ch = hexToChar(l->info2_hex[v], l->info2_hex[v + 1]);
+                        ++v;
                         if (ch > 0x1F && ch < 0x7F && ch != 0x22)
                             l->lbj_class[c] = ch;
                     }
                 }
-                // to GBK for route.
+                // to GB2312 for route.
                 if (l->info2_hex.length() >= 20 && l->info2_hex[14] != 'X' && l->info2_hex[15] != 'X') { // Character 1
                     size_t c = 0;
                     for (size_t v = 14; v < 17; v++, c++) {
-                        int a = isdigit(l->info2_hex[v]) ? (l->info2_hex[v] - '0') : (l->info2_hex[v] - '0' - 7),
-                                b = isdigit(l->info2_hex[v + 1]) ? (l->info2_hex[++v] - '0') : (l->info2_hex[++v] -
-                                                                                                '0' - 7);
-                        auto ch = (int8_t) ((a << 4) | b);
+                        int8_t ch = hexToChar(l->info2_hex[v], l->info2_hex[v + 1]);
+                        ++v;
                         if ((uint8_t) ch >= 0xA0 || ch == 0x20)
                             l->route[c] = ch;
                     }
@@ -452,10 +448,8 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l) {
                 if (l->info2_hex.length() >= 25 && l->info2_hex[18] != 'X' && l->info2_hex[20] != 'X') {// Character 2
                     size_t c = 2;
                     for (size_t v = 18; v < 21; v++, c++) {
-                        int a = isdigit(l->info2_hex[v]) ? (l->info2_hex[v] - '0') : (l->info2_hex[v] - '0' - 7),
-                                b = isdigit(l->info2_hex[v + 1]) ? (l->info2_hex[++v] - '0') : (l->info2_hex[++v] -
-                                                                                                '0' - 7);
-                        auto ch = (int8_t) ((a << 4) | b);
+                        int8_t ch = hexToChar(l->info2_hex[v], l->info2_hex[v + 1]);
+                        ++v;
                         if ((uint8_t) ch >= 0xA0 || ch == 0x20)
                             l->route[c] = ch;
                     }
@@ -463,10 +457,8 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l) {
                 if (l->info2_hex.length() >= 30 && l->info2_hex[22] != 'X' && l->info2_hex[25] != 'X') {// Character 3,4
                     size_t c = 4;
                     for (size_t v = 22; v < 29; v++, c++) {
-                        int a = isdigit(l->info2_hex[v]) ? (l->info2_hex[v] - '0') : (l->info2_hex[v] - '0' - 7),
-                                b = isdigit(l->info2_hex[v + 1]) ? (l->info2_hex[++v] - '0') : (l->info2_hex[++v] -
-                                                                                                '0' - 7);
-                        auto ch = (int8_t) ((a << 4) | b);
+                        int8_t ch = hexToChar(l->info2_hex[v], l->info2_hex[v + 1]);
+                        ++v;
                         if ((uint8_t) ch >= 0xA0 || ch == 0x20)
                             l->route[c] = ch;
                     }
@@ -477,7 +469,7 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l) {
             case LBJ_SYNC_ADDR: {
                 lbj_sync:
                 l->type = 2;
-                if (p[i].str.length() == 5 && p[i].str[0] != 'X') {
+                if (p[i].str.length() >= 5 && p[i].str[0] != 'X') {
                     for (size_t c = 1, v = 0; c < 5; c++, v++) {
                         l->time[v] = p[i].str[c];
                         if (c == 2)
@@ -490,6 +482,23 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l) {
     }
 
     return 0;
+}
+
+int8_t hexToChar(int8_t hex1, int8_t hex2) {
+    // int a = isdigit(l->info2_hex[v]) ? (l->info2_hex[v] - '0') : (l->info2_hex[v] - '0' - 7),
+    //         b = isdigit(l->info2_hex[v + 1]) ? (l->info2_hex[++v] - '0') : (l->info2_hex[++v] -
+    //                                                                         '0' - 7);
+    uint8_t a, b;
+    if (isdigit(hex1))
+        a = hex1 - 0x30;
+    else
+        a = hex1 - 0x37;
+    if (isdigit(hex2))
+        b = hex2 - 0x30;
+    else
+        b = hex2 - 0x37;
+
+    return (int8_t) ((a << 4) | b);
 }
 
 void recodeBCD(const char *c, String *v) {

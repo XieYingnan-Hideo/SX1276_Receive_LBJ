@@ -168,9 +168,9 @@ void updateInfo() {
         u8g2->drawStr(0, 64, ipa.c_str());
     } else
         u8g2->drawStr(0, 64, "WIFI OFF");
-    if (have_sd && WiFiClass::status() == WL_CONNECTED)
+    if (sd1.status() && WiFiClass::status() == WL_CONNECTED)
         u8g2->drawStr(83, 64, "D");
-    else if (have_sd)
+    else if (sd1.status())
         u8g2->drawStr(83, 64, "L");
     else if (WiFiClass::status() == WL_CONNECTED)
         u8g2->drawStr(83, 64, "N");
@@ -343,40 +343,40 @@ void dualPrintln(const char *fmt) {
 }
 
 void LBJTEST() {
-    // PagerClient::pocsag_data pocdat[16];
-    // pocdat[0].str = "37012";
-    // pocdat[0].addr = 1234000;
-    // pocdat[0].func = 1;
-    // pocdat[0].is_empty = false;
-    // pocdat[0].len = 15;
-    // pocdat[1].str = "20202350018530U)*9UU*6 (-(202011719040139058291000";
-    // pocdat[1].addr = 1234002;
-    // pocdat[1].func = 1;
-    // pocdat[1].is_empty = false;
-    // pocdat[1].len = 0;
+    PagerClient::pocsag_data pocdat[16];
+    pocdat[0].str = "37012";
+    pocdat[0].addr = 1234000;
+    pocdat[0].func = 1;
+    pocdat[0].is_empty = false;
+    pocdat[0].len = 15;
+    pocdat[1].str = "30479100018530U)*9UU*6 (-(202011719040139058291000";
+    pocdat[1].addr = 1234002;
+    pocdat[1].func = 1;
+    pocdat[1].is_empty = false;
+    pocdat[1].len = 0;
 //    Serial.println("[LBJ] 测试输出 机车编号 位置 XX°XX′XX″ ");
 //    dualPrintf(false,"[LBJ] 测试输出 机车编号 位置 XX°XX′XX″ \n");
-//     struct lbj_data lbj;
+    struct lbj_data lbj;
 
-    db = new data_bond;
-    db->pocsagData[0].addr = 1234000;
-    db->pocsagData[0].str = "37012  15  1504";
-    db->pocsagData[0].func = 1;
-    db->pocsagData[0].is_empty = false;
-    db->pocsagData[0].len = 15;
-    db->pocsagData[1].str = "20202350018530U)*9UU*6 (-(202011719040139058291000";
-    db->pocsagData[1].addr = 1234002;
-    db->pocsagData[1].func = 1;
-    db->pocsagData[1].is_empty = false;
-    db->pocsagData[1].len = 0;
-    // readDataLBJ(pocdat, &lbj);
-    // printDataSerial(pocdat, lbj, rxInfo);
-    // appendDataLog(pocdat, lbj, rxInfo);
-    // printDataTelnet(pocdat, lbj, rxInfo);
-    simpleFormatTask();
-    rxInfo.rssi = 0;
-    rxInfo.fer = 0;
-    delete db;
+    // db = new data_bond;
+    // db->pocsagData[0].addr = 1234000;
+    // db->pocsagData[0].str = "37012  15  1504";
+    // db->pocsagData[0].func = 1;
+    // db->pocsagData[0].is_empty = false;
+    // db->pocsagData[0].len = 15;
+    // db->pocsagData[1].str = "20202350018530U)*9UU*6 (-(202011719040139058291000";
+    // db->pocsagData[1].addr = 1234002;
+    // db->pocsagData[1].func = 1;
+    // db->pocsagData[1].is_empty = false;
+    // db->pocsagData[1].len = 0;
+    readDataLBJ(pocdat, &lbj);
+    printDataSerial(pocdat, lbj, rxInfo);
+    // // appendDataLog(pocdat, lbj, rxInfo);
+    // // printDataTelnet(pocdat, lbj, rxInfo);
+    // simpleFormatTask();
+    // rxInfo.rssi = 0;
+    // rxInfo.fer = 0;
+    // delete db;
 }
 
 int initPager() {// initialize SX1276 with default settings
@@ -824,6 +824,7 @@ void handleSerialInput() {
         } else if (in == "time") {
             getLocalTime(&time_info, 1);
             Serial.println(&time_info, "$ [SNTP] %Y-%m-%d %H:%M:%S ");
+            Serial.printf("$ SYS Time %s, Up time %lu ms\n", fmtime(time_info),millis());
         } else if (in == "cd") {
             if (have_cd)
                 Serial.println("$ Core dump exported.");

@@ -1,3 +1,4 @@
 .pio
 logs
 .vscode
+/COREDUMP*.bin
