@@ -95,6 +95,8 @@ void timeSync(struct tm &time);
 
 char *fmtime(const struct tm &time);
 
+char *fmtms(uint64_t ms);
+
 void onTelnetConnect(String ip);
 
 void onTelnetDisconnect(String ip);

@@ -56,9 +56,9 @@ void changeCpuFreq(uint32_t freq_mhz) {
             setCpuFrequencyMhz(freq_mhz);
     } else {
         // Serial.println("[D] CALL WIFI OFF");
-        auto timer = millis();
+        auto timer = millis64();
         WiFiClass::mode(WIFI_OFF);
-        Serial.printf("[D] WIFI OFF [%lu] \n", millis() - timer);
+        Serial.printf("[D] WIFI OFF [%llu] \n", millis64() - timer);
         if (ets_get_cpu_frequency() != freq_mhz)
             setCpuFrequencyMhz(freq_mhz);
         WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -80,10 +80,10 @@ void timeAvailable(struct timeval *t) {
 #ifdef HAS_RTC
     getLocalTime(&time_info);
     rtc.setDateTime(time_info);
-    auto timer = micros();
+    auto timer = esp_timer_get_time();
     rtc.getDateTime(ti2);
     Serial.print(&ti2, "[eRTC] Time set to %Y-%m-%d %H:%M:%S ");
-    Serial.printf("[%lu]\n", micros() - timer);
+    Serial.printf("[%lld]\n", esp_timer_get_time() - timer);
 #endif
 }
 
@@ -107,6 +107,22 @@ char *fmtime(const struct tm &time) {
     static char buffer[20];
     sprintf(buffer, "%d-%02d-%02d %02d:%02d:%02d", time.tm_year + 1900, time.tm_mon + 1, time.tm_mday, time.tm_hour,
             time.tm_min, time.tm_sec);
+    return buffer;
+}
+
+char *fmtms(uint64_t ms) {
+    static char buffer[40];
+    if (ms < 60000) // seconds
+        sprintf(buffer, "%.3f Seconds", (double) ms / 1000);
+    else if (ms < 3600000) // minutes
+        sprintf(buffer, "%llu Minutes %.3f Seconds", ms / 60000, (double) (ms % 60000) / 1000);
+    else if (ms < 86400000) // hours
+        sprintf(buffer, "%llu Hours %llu Minutes %.3f Seconds", ms / 3600000, ms % 3600000 / 60000,
+                (double) (ms % 3600000 % 60000) / 1000);
+    else // days
+        sprintf(buffer, "%llu Days %llu Hours %llu Minutes %.3f Seconds", ms / 86400000, ms % 86400000 / 3600000,
+                ms % 86400000 % 3600000 / 60000, (double) (ms % 86400000 % 3600000 % 60000) / 1000);
+
     return buffer;
 }
 
@@ -270,7 +286,7 @@ void timeTask(void *pVoid) {
 
 //bool ipChanged(uint16_t interval, uint64_t *timer, uint32_t *last_ip) {
 //    uint32_t ip1 = WiFi.localIP();
-//    if (millis()-timer >= interval){
+//    if (millis64()-timer >= interval){
 //        if (WiFi.localIP() != ip1){
 //            return true;
 //        }

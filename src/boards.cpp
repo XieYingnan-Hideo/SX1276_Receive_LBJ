@@ -17,6 +17,10 @@ bool have_sd = false;
 DS3231 rtc;
 #endif
 
+uint64_t millis64() {
+    return esp_timer_get_time() / 1000ULL;
+}
+
 void initBoard() {
     Serial.begin(115200);
     Serial.println("initBoard");

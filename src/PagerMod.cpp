@@ -20,6 +20,7 @@ bool fixBCH(uint32_t &cw, CBCH3121 &bch, uint16_t &err) {
         if (bch.decode(cw, err, p_check) && p_check) {
             err += err_last;
             Serial.printf("[D] Correction Success!\n");
+            sd1.append("[D] Correction Success!\n");
             return true;
         }
         cw = cw_last;

@@ -342,6 +342,49 @@ void dualPrintln(const char *fmt) {
     telnet.println(fmt);
 }
 
+String printResetReason(esp_reset_reason_t reset) {
+    String str;
+    switch (reset) {
+        case ESP_RST_UNKNOWN:
+            str = "ESP_RST_UNKNOWN, Reset reason can not be determined";
+            break;
+        case ESP_RST_POWERON:
+            str = "ESP_RST_POWERON, Reset due to power-on event";
+            break;
+        case ESP_RST_EXT:
+            str = "ESP_RST_EXT, Reset by external pin (not applicable for ESP32)";
+            break;
+        case ESP_RST_SW:
+            str = "ESP_RST_SW, Software reset via esp_restart";
+            break;
+        case ESP_RST_PANIC:
+            str = "ESP_RST_PANIC, Software reset due to exception/panic";
+            break;
+        case ESP_RST_INT_WDT:
+            str = "ESP_RST_INT_WDT, Reset (software or hardware) due to interrupt watchdog";
+            break;
+        case ESP_RST_TASK_WDT:
+            str = "ESP_RST_TASK_WDT, Reset due to task watchdog";
+            break;
+        case ESP_RST_WDT:
+            str = "ESP_RST_WDT, Reset due to other watchdogs";
+            break;
+        case ESP_RST_DEEPSLEEP:
+            str = "ESP_RST_DEEPSLEEP, Reset after exiting deep sleep mode";
+            break;
+        case ESP_RST_BROWNOUT:
+            str = "ESP_RST_BROWNOUT, Brownout reset (software or hardware)";
+            break;
+        case ESP_RST_SDIO:
+            str = "ESP_RST_SDIO, Reset over SDIO";
+            break;
+        default:
+            str = "Unknown reset reason";
+            break;
+    }
+    return str;
+}
+
 void LBJTEST() {
     PagerClient::pocsag_data pocdat[16];
     pocdat[0].str = "37012";
@@ -408,7 +451,8 @@ int initPager() {// initialize SX1276 with default settings
 // SETUP
 void setup() {
     esp_core_dump_init();
-    runtime_timer = millis();
+    runtime_timer = millis64();
+    esp_reset_reason_t reset_reason = esp_reset_reason();
     initBoard();
     sd1.setFS(SD);
     delay(150);
@@ -426,11 +470,13 @@ void setup() {
     Serial.printf("SYS Time %s\n", fmtime(time_info));
 #endif
 
+    Serial.printf("RST: %s\n", printResetReason(reset_reason).c_str());
     if (have_sd) {
         sd1.begin("/LOGTEST");
         sd1.beginCSV("/CSVTEST");
         sd1.append("电池电压 %1.2fV\n", battery.readVoltage() * 2);
         sd1.append(2, "调试等级 %d\n", LOG_VERBOSITY);
+        sd1.append("复位原因 %s\n", printResetReason(reset_reason).c_str());
 #ifdef HAS_RTC
         sd1.append("RTC时间 %d-%02d-%02d %02d:%02d:%02d\n", time_info.tm_year + 1900, time_info.tm_mon + 1,
                    time_info.tm_mday, time_info.tm_hour, time_info.tm_min, time_info.tm_sec);
@@ -481,11 +527,11 @@ void setup() {
     // start thread watchdog
     esp_task_wdt_init(WDT_TIMEOUT, true);
     esp_task_wdt_add(nullptr);
-    // wdt_timer = millis();
+    // wdt_timer = millis64();
 
     digitalWrite(BOARD_LED, LED_OFF);
-    Serial.printf("Booting time %llu ms\n", millis() - runtime_timer);
-    sd1.append("启动用时 %llu ms\n", millis() - runtime_timer);
+    Serial.printf("Booting time %llu ms\n", millis64() - runtime_timer);
+    sd1.append("启动用时 %llu ms\n", millis64() - runtime_timer);
     runtime_timer = 0;
 
     if (u8g2) {
@@ -535,7 +581,8 @@ void handleSync() {
         //        Serial.printf("[SX1276] AGC Triggered. Current Gain Pos %d\n",radio.getGain());
         //        agc_triggered = true;
         //    }
-        if (rxInfo.cnt < 5 && (rxInfo.timer == 0 || micros() - rxInfo.timer > 11000 || micros() - rxInfo.timer < 0)) {
+        if (rxInfo.cnt < 5 && (rxInfo.timer == 0 || esp_timer_get_time() - rxInfo.timer > 11000 ||
+                               esp_timer_get_time() - rxInfo.timer < 0)) {
             // It seems the micros will overflow, causing the program to stuck here. （真的吗...）
             float rssi = radio.getRSSI(false, true);
             // if (rssi >= -80.0 && !agc_triggered){
@@ -543,7 +590,7 @@ void handleSync() {
             //     Serial.printf("[SX1276] AGC Triggered. Current Gain Pos %d\n",radio.getGain());
             //     agc_triggered = true;
             // }
-            rxInfo.timer = micros();
+            rxInfo.timer = esp_timer_get_time();
             rxInfo.rssi += rssi; // decreased number of rssi samples due to READ-DATA task running on spi bus.
             // Serial.printf("[D] RXI %.2f\n",rxInfo.rssi);
             rxInfo.cnt++;
@@ -571,9 +618,9 @@ void checkNetwork() {
     if (isConnected() && net_timer != 0)
         net_timer = 0;
     else if (!isConnected() && net_timer == 0)
-        net_timer = millis();
+        net_timer = millis64();
 
-    if (!isConnected() && millis() - net_timer > NETWORK_TIMEOUT && !no_wifi) { // 暂定解决方案：超30分钟断wifi
+    if (!isConnected() && millis64() - net_timer > NETWORK_TIMEOUT && !no_wifi) { // 暂定解决方案：超30分钟断wifi
         WiFi.disconnect();
         WiFiClass::mode(WIFI_OFF);
         Serial.println("WIFI off after 30 minutes without connection.");
@@ -592,29 +639,29 @@ void checkNetwork() {
 void loop() {
     // reset watchdog
     esp_task_wdt_reset();
-    // if (millis() - wdt_timer >= WDT_RST_PERIOD) {
-    //     uint64_t t = micros();
+    // if (millis64() - wdt_timer >= WDT_RST_PERIOD) {
+    //     uint64_t t = esp_timer_get_time() ;
     //     auto r = esp_task_wdt_reset();
-    //     t = micros() - t;
-    //     wdt_timer = millis();
+    //     t = esp_timer_get_time() - t;
+    //     wdt_timer = millis64();
     //     Serial.printf("WDT_RST %d [%llu]\n",r,t);
     // }
 
     // if task complete, de-initialize
     if (fd_state == TASK_DONE) {
         if (task_fd != nullptr) {
-            // Serial.printf("[D] NULLPTR EXCE [%llu]\n", millis() - format_task_timer);
+            // Serial.printf("[D] NULLPTR EXCE [%llu]\n", millis64() - format_task_timer);
             vTaskDelete(task_fd);
-            // Serial.printf("[D] TASK DEL [%llu]\n", millis() - format_task_timer);
+            // Serial.printf("[D] TASK DEL [%llu]\n", millis64() - format_task_timer);
             task_fd = nullptr;
         }
-        // Serial.printf("[D] NULLPTR [%llu]\n", millis() - format_task_timer);
+        // Serial.printf("[D] NULLPTR [%llu]\n", millis64() - format_task_timer);
         initFmtVars();
-        // Serial.printf("[D] INIT VARS [%llu]\n", millis() - format_task_timer);
+        // Serial.printf("[D] INIT VARS [%llu]\n", millis64() - format_task_timer);
         // digitalWrite(BOARD_LED, LED_OFF);
-        // Serial.printf("[D] LED LOW [%llu]\n", millis() - format_task_timer);
+        // Serial.printf("[D] LED LOW [%llu]\n", millis64() - format_task_timer);
         // changeCpuFreq(240);
-        // Serial.printf("[D] FREQ CHANGED [%llu]\n", millis() - format_task_timer);
+        // Serial.printf("[D] FREQ CHANGED [%llu]\n", millis64() - format_task_timer);
         fd_state = TASK_INIT;
         format_task_timer = 0;
     } else if (fd_state == TASK_CREATE_FAILED) { // Handle create failure.
@@ -624,7 +671,7 @@ void loop() {
         fd_state = TASK_INIT;
     }
 
-    if (millis() - led_timer > LED_ON_TIME && led_timer != 0 && fd_state == TASK_INIT) {
+    if (millis64() - led_timer > LED_ON_TIME && led_timer != 0 && fd_state == TASK_INIT) {
         digitalWrite(BOARD_LED, LED_OFF);
         led_timer = 0;
         changeCpuFreq(240);
@@ -635,7 +682,7 @@ void loop() {
     checkNetwork();
     handleTelnetCall();
 
-    if (millis() > 60000 && format_task_timer == 0 &&
+    if (millis64() > 60000 && format_task_timer == 0 &&
         !exec_init_f80) // lower down frequency 60 sec after startup and idle.
     {
         if (isConnected())
@@ -651,20 +698,20 @@ void loop() {
 
     // update information on screen.
     if (screen_timer == 0) {
-        screen_timer = millis();
-    } else if (millis() - screen_timer > 3000) { // Set to 3000 to reduce interference.
+        screen_timer = millis64();
+    } else if (millis64() - screen_timer > 3000) { // Set to 3000 to reduce interference.
         updateInfo();
-        screen_timer = millis();
+        screen_timer = millis64();
     }
 
-    // if (millis()%5000 == 0){
-    //     sd1.append("[D] 当前运行时间 %lu ms.\n",millis());
+    // if (millis64()%5000 == 0){
+    //     sd1.append("[D] 当前运行时间 %lu ms.\n",millis64());
     //     sd1.append("[D] 测试输出：\n");
     //     LBJTEST();
     // }
 
-    // if (millis() - format_task_timer >= 200 && format_task_timer != 0) {
-    //     Serial.printf("LED LOW [%llu]\n", millis() - format_task_timer);
+    // if (millis64() - format_task_timer >= 200 && format_task_timer != 0) {
+    //     Serial.printf("LED LOW [%llu]\n", millis64() - format_task_timer);
     //     digitalWrite(BOARD_LED, LED_OFF);
     //     if (fd_state == TASK_DONE || fd_state == TASK_INIT) {
     //         format_task_timer = 0;
@@ -675,7 +722,7 @@ void loop() {
     // handle task timeout
     // timeout & running | created
     // todo: simplify this judgement.
-    if (millis() - format_task_timer >= FD_TASK_TIMEOUT && (fd_state == TASK_RUNNING || fd_state == TASK_CREATED)
+    if (millis64() - format_task_timer >= FD_TASK_TIMEOUT && (fd_state == TASK_RUNNING || fd_state == TASK_CREATED)
         && task_fd != nullptr && format_task_timer != 0) {
         vTaskDelete(task_fd);
         task_fd = nullptr;
@@ -683,14 +730,14 @@ void loop() {
         dualPrintln("[Pager] FD_TASK Timeout.");
         sd1.append("[Pager] FD_TASK Timeout.\n");
         initFmtVars();
-        Serial.printf("LED LOW [%llu]\n", millis() - format_task_timer);
+        Serial.printf("LED LOW [%llu]\n", millis64() - format_task_timer);
         digitalWrite(BOARD_LED, LED_OFF);
         format_task_timer = 0;
         led_timer = 0;
         changeCpuFreq(240);
         fd_state = TASK_INIT;
     }
-    // else if (millis() - format_task_timer >= FD_TASK_TIMEOUT && fd_state != TASK_INIT && format_task_timer != 0 &&
+    // else if (millis64() - format_task_timer >= FD_TASK_TIMEOUT && fd_state != TASK_INIT && format_task_timer != 0 &&
     //            fd_state != TASK_RUNNING_SCREEN) { // terminate task while u8g2 operation causes main loop stuck.
     //     Serial.printf("[Pager] Task state %d \n", fd_state);
     //     if (task_fd != nullptr) {
@@ -700,7 +747,7 @@ void loop() {
     //     dualPrintln("[Pager] FD_TASK Timeout.");
     //     sd1.append("[Pager] FD_TASK Timeout.\n");
     //     initFmtVars();
-    //     Serial.printf("LED LOW [%llu]\n", millis() - format_task_timer);
+    //     Serial.printf("LED LOW [%llu]\n", millis64() - format_task_timer);
     //     digitalWrite(BOARD_LED, LED_OFF);
     //     format_task_timer = 0;
     //     led_timer = 0;
@@ -708,7 +755,7 @@ void loop() {
     //     fd_state = TASK_INIT;
     // }
 
-    if (millis() - timer4 >= 60000 && timer4 != 0 && ets_get_cpu_frequency() != 80) // fCPU to 80 after 60s in idle.
+    if (millis64() - timer4 >= 60000 && timer4 != 0 && ets_get_cpu_frequency() != 80) // fCPU to 80 after 60s in idle.
 //        setCpuFrequencyMhz(80);
         changeCpuFreq(80);
 
@@ -721,8 +768,8 @@ void loop() {
         // Serial.println("[PHY-LAYER][D] AVAILABLE > 2.");
         setCpuFrequencyMhz(240);
         db = new data_bond;
-        runtime_timer = millis();
-        timer4 = millis();
+        runtime_timer = millis64();
+        timer4 = millis64();
         int state = pager.readDataMSA(db->pocsagData, 0);
 //        sd1.append("[PHY-LAYER][D] AVAILABLE > 2.\n");
         rxInfo.rssi = rxInfo.rssi / (float) rxInfo.cnt;
@@ -744,8 +791,8 @@ void loop() {
         if (state == RADIOLIB_ERR_NONE) {
 //            Serial.printf("success.\n");
             digitalWrite(BOARD_LED, LED_ON);
-            format_task_timer = millis();
-            led_timer = millis();
+            format_task_timer = millis64();
+            led_timer = millis64();
 
             sd1.append(2, "正在格式化输出...\n");
             // formatDataTask();
@@ -823,8 +870,7 @@ void handleSerialInput() {
 #endif
         } else if (in == "time") {
             getLocalTime(&time_info, 1);
-            Serial.println(&time_info, "$ [SNTP] %Y-%m-%d %H:%M:%S ");
-            Serial.printf("$ SYS Time %s, Up time %lu ms\n", fmtime(time_info),millis());
+            Serial.printf("$ SYS Time %s, Up time %llu ms (%s)\n", fmtime(time_info), millis64(), fmtms(millis64()));
         } else if (in == "cd") {
             if (have_cd)
                 Serial.println("$ Core dump exported.");
@@ -851,12 +897,15 @@ void handleSerialInput() {
             }
         } else if (in == "mem") {
             Serial.printf("$ Mem left: %d Bytes\n", esp_get_free_heap_size());
+        } else if (in == "rst") {
+            esp_reset_reason_t reason = esp_reset_reason();
+            Serial.printf("$ RST: %s\n", printResetReason(reason).c_str());
         }
     }
 }
 
 void initFmtVars() {
-    Serial.printf("[Pager] Processing time %llu ms.\n", millis() - runtime_timer);
+    Serial.printf("[Pager] Processing time %llu ms.\n", millis64() - runtime_timer);
     runtime_timer = 0;
     rxInfo.rssi = 0;
     rxInfo.fer = 0;
@@ -879,26 +928,26 @@ void formatDataTask(void *pVoid) {
     }
 
     // Serial.printf("[FD-Task] Stack High Mark pDATA %u\n", uxTaskGetStackHighWaterMark(nullptr));
-    sd1.append(2, "原始数据输出完成，用时[%llu]\n", millis() - runtime_timer);
-    Serial.printf("decode complete.[%llu]", millis() - runtime_timer);
+    sd1.append(2, "原始数据输出完成，用时[%llu]\n", millis64() - runtime_timer);
+    Serial.printf("decode complete.[%llu]", millis64() - runtime_timer);
     readDataLBJ(db->pocsagData, &db->lbjData);
-    sd1.append(2, "LBJ读取完成，用时[%llu]\n", millis() - runtime_timer);
-    Serial.printf("Read complete.[%llu]", millis() - runtime_timer);
+    sd1.append(2, "LBJ读取完成，用时[%llu]\n", millis64() - runtime_timer);
+    Serial.printf("Read complete.[%llu]", millis64() - runtime_timer);
     // Serial.printf("[FD-Task] Stack High Mark rLBJ %u\n", uxTaskGetStackHighWaterMark(nullptr));
 
     printDataSerial(db->pocsagData, db->lbjData, rxInfo);
-    sd1.append(2, "串口输出完成，用时[%llu]\n", millis() - runtime_timer);
-    Serial.printf("SPRINT complete.[%llu]", millis() - runtime_timer);
+    sd1.append(2, "串口输出完成，用时[%llu]\n", millis64() - runtime_timer);
+    Serial.printf("SPRINT complete.[%llu]", millis64() - runtime_timer);
 
     // sd1.disableSizeCheck();
     appendDataLog(db->pocsagData, db->lbjData, rxInfo);
-    Serial.printf("sdprint complete.[%llu]", millis() - runtime_timer);
+    Serial.printf("sdprint complete.[%llu]", millis64() - runtime_timer);
     appendDataCSV(db->pocsagData, db->lbjData, rxInfo);
-    Serial.printf("csvprint complete.[%llu]", millis() - runtime_timer);
+    Serial.printf("csvprint complete.[%llu]", millis64() - runtime_timer);
     // sd1.enableSizeCheck();
 
     printDataTelnet(db->pocsagData, db->lbjData, rxInfo);
-    // Serial.printf("telprint complete.[%llu]", millis() - runtime_timer);
+    // Serial.printf("telprint complete.[%llu]", millis64() - runtime_timer);
     // Serial.printf("[FD-Task] Stack High Mark TRI-OUT %u\n", uxTaskGetStackHighWaterMark(nullptr));
 // Serial.printf("type %d \n",lbj.type);
 
@@ -912,13 +961,13 @@ void formatDataTask(void *pVoid) {
         } else if (db->lbjData.type == 2) {
             showLBJ2(db->lbjData);
         }
-        // Serial.printf("Complete u8g2 [%llu]\n", millis() - runtime_timer);
+        // Serial.printf("Complete u8g2 [%llu]\n", millis64() - runtime_timer);
     }
 #endif
     Serial.printf("[FD-Task] Stack High Mark %u\n", uxTaskGetStackHighWaterMark(nullptr));
     sd1.append(2, "任务堆栈标 %u\n", uxTaskGetStackHighWaterMark(nullptr));
     // sd1.append("[FD-Task] Stack High Mark %u\n", uxTaskGetStackHighWaterMark(nullptr));
-    sd1.append(2, "格式化输出任务完成，用时[%llu]\n", millis() - runtime_timer);
+    sd1.append(2, "格式化输出任务完成，用时[%llu]\n", millis64() - runtime_timer);
     fd_state = TASK_DONE;
     task_fd = nullptr;
     vTaskDelete(nullptr);

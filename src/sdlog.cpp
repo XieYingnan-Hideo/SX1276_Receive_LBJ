@@ -173,7 +173,7 @@ void SD_LOG::writeHeader() {
     if (is_newfile) {
         log.printf("ESP32 DEV MODULE LOG FILE %s \n", filename);
     }
-    log.printf("BEGIN OF SYSTEM LOG, STARTUP TIME %lu MS.\n", millis());
+    log.printf("BEGIN OF SYSTEM LOG, STARTUP TIME %llu MS.\n", millis64());
     if (getLocalTime(&timein, 0))
         log.printf("CURRENT TIME %d-%02d-%02d %02d:%02d:%02d\n",
                    timein.tm_year + 1900, timein.tm_mon + 1, timein.tm_mday, timein.tm_hour, timein.tm_min,
@@ -212,7 +212,7 @@ void SD_LOG::appendCSV(const char *format, ...) { // TODO: maybe implement item 
     va_end(args);
     if (is_startline_csv) {
         csv.printf("%1.2f,", battery.readVoltage() * 2);
-        csv.printf("%lu,", millis());
+        csv.printf("%llu,", millis64());
         if (getLocalTime(&timein, 0)) {
             csv.printf("%d-%02d-%02d,%02d:%02d:%02d,", timein.tm_year + 1900, timein.tm_mon + 1,
                        timein.tm_mday, timein.tm_hour, timein.tm_min, timein.tm_sec);
@@ -253,7 +253,7 @@ void SD_LOG::append(const char *format, ...) {
             log.printf("%d-%02d-%02d %02d:%02d:%02d > ", timein.tm_year + 1900, timein.tm_mon + 1,
                        timein.tm_mday, timein.tm_hour, timein.tm_min, timein.tm_sec);
         } else {
-            log.printf("[%6lu.%03lu] > ", millis() / 1000, millis() % 1000);
+            log.printf("[%6llu.%03llu] > ", millis64() / 1000, millis64() % 1000);
         }
         is_startline = false;
     }
@@ -292,7 +292,7 @@ void SD_LOG::appendBuffer(const char *format, ...) {
                     timein.tm_mday, timein.tm_hour, timein.tm_min, timein.tm_sec);
             large_buffer += time_buffer;
         } else {
-            sprintf(time_buffer, "[%6lu.%03lu] > ", millis() / 1000, millis() % 1000);
+            sprintf(time_buffer, "[%6llu.%03llu] > ", millis64() / 1000, millis64() % 1000);
             large_buffer += time_buffer;
         }
         delete[] time_buffer;
@@ -347,7 +347,7 @@ void SD_LOG::appendBufferCSV(const char *format, ...) {
     va_end(args);
     if (is_startline_csv) {
         char *headers = new char[128];
-        sprintf(headers, "%1.2f,%lu,", battery.readVoltage() * 2, millis());
+        sprintf(headers, "%1.2f,%llu,", battery.readVoltage() * 2, millis64());
         large_buffer_csv += headers;
         if (getLocalTime(&timein, 1)) {
             sprintf(headers, "%d-%02d-%02d,%02d:%02d:%02d,", timein.tm_year + 1900, timein.tm_mon + 1,
