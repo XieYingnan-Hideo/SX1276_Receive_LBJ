@@ -34,6 +34,7 @@
 #define FD_TASK_TIMEOUT 750 // ms
 #define FD_TASK_ATTEMPTS 3
 #define LED_ON_TIME 200 // ms
+#define TARGET_FREQ 821.2375
 //region Variables
 SX1276 radio = new Module(RADIO_CS_PIN, RADIO_DIO0_PIN, RADIO_RST_PIN, RADIO_DIO1_PIN);
 // receiving packets requires connection
@@ -43,7 +44,7 @@ const int pin = RADIO_BUSY_PIN;
 //float fer = 0;
 // create Pager client instance using the FSK module
 PagerClient pager(&radio);
-// todo: millis返回值每50天就会溢出，考虑新建一个变量，返回值每归零一次就加1，并且以此处理使用计时器的函数。
+// timers
 uint64_t format_task_timer = 0;
 uint64_t runtime_timer = 0;
 uint64_t screen_timer = 0;
@@ -52,6 +53,9 @@ uint64_t timer4 = 0;
 // uint64_t wdt_timer = 0;
 uint64_t net_timer = 0;
 uint32_t ip_last = 0;
+// TODO: Add Temperature based dynamic ppm adjustment.
+float ppm = 6;
+float actual_freq = (float) ((TARGET_FREQ * ppm) / 1e6 + TARGET_FREQ);
 bool is_startline = true;
 bool exec_init_f80 = false;
 // bool agc_triggered = false;
@@ -378,9 +382,6 @@ String printResetReason(esp_reset_reason_t reset) {
         case ESP_RST_SDIO:
             str = "ESP_RST_SDIO, Reset over SDIO";
             break;
-        default:
-            str = "Unknown reset reason";
-            break;
     }
     return str;
 }
@@ -424,7 +425,7 @@ void LBJTEST() {
 
 int initPager() {// initialize SX1276 with default settings
 
-    int state = radio.beginFSK(434.0, 4.8, 5.0, 12.5);
+    int state = radio.beginFSK(434.0, 4.8, 5.0, 15.6);
     RADIOLIB_ASSERT(state)
 
     state = radio.setGain(1);
@@ -434,7 +435,7 @@ int initPager() {// initialize SX1276 with default settings
     // Serial.print(F("[Pager] Initializing ... "));
     // base (center) frequency: 821.2375 MHz + 0.005 FE
     // speed:                   1200 bps
-    state = pager.begin(821.2375 + 0.005, 1200, false, 2500);
+    state = pager.begin(actual_freq, 1200, false, 2500);
     RADIOLIB_ASSERT(state)
 
     // start receiving POCSAG messages
@@ -515,6 +516,7 @@ void setup() {
     int state = initPager();
     if (state == RADIOLIB_ERR_NONE) {
         Serial.println(F("success."));
+        Serial.printf("[SX1276] Actual Frequency %f MHz, ppm %.1f\n", actual_freq, ppm);
     } else {
         Serial.print(F("failed, code "));
         Serial.println(state);
@@ -804,7 +806,7 @@ void loop() {
                 delay(1);
             } else if (x_ret == errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY) {
                 int x_ret1;
-                for (int i = 0; i < FD_TASK_ATTEMPTS; ++i) { // todo: can this retry work?
+                for (int i = 0; i < FD_TASK_ATTEMPTS; ++i) {
                     x_ret1 = xTaskCreatePinnedToCore(formatDataTask, "task_fd",
                                                      FD_TASK_STACK_SIZE, nullptr,
                                                      2, &task_fd, ARDUINO_RUNNING_CORE);
