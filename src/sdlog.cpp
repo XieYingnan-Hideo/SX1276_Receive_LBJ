@@ -163,7 +163,13 @@ int SD_LOG::beginCSV(const char *path) {
         sd_csv = false;
         return -1;
     }
+    // csv.close();
+    // csv = filesys->open(csv_path, "a", true);
     writeHeaderCSV();
+
+    // Serial.printf("csvsize = %d\n",csv.size());
+    // if (csv.size() == 0)
+    //     writeHeaderCSV();
     sd_csv = true;
     return 0;
 }
@@ -183,12 +189,24 @@ void SD_LOG::writeHeader() {
 }
 
 void SD_LOG::writeHeaderCSV() { // TODO: needs more confirmation about title.
-    if (is_newfile_csv) {
+    csv.close();
+    csv = filesys->open(csv_path, "a");
+    // Serial.printf("csvfile %s, csv size %d, is_newfile_csv = %d\n",csv.path(),csv.size(),is_newfile_csv);
+    if (is_newfile_csv && csv.size() < 200) {
         csv.printf("# ESP32 DEV MODULE CSV FILE %s \n", filename_csv);
+        // csv.printf(
+        //         "电压,系统时间,日期,时间,LBJ时间,方向,级别,车次,速度,公里标,机车编号,线路,纬度,经度,HEX,RSSI,FER,原始数据,错误,错误率\n");
         csv.printf(
-                "电压,系统时间,日期,时间,LBJ时间,方向,级别,车次,速度,公里标,机车编号,线路,纬度,经度,HEX,RSSI,FER,原始数据,错误,错误率\n");
+                "温度,电压,系统时间,日期,时间,LBJ时间,方向,级别,车次,速度,公里标,机车编号,线路,纬度,经度,HEX,RSSI,FER,PPM(FER),PPM(CURRENT),原始数据,错误,错误率\n");
+        if (sd_log) {
+            append("[SDLOG][D] Writing CSV Headers, is_newfile = %d, filesize = %d\n", is_newfile_csv, csv.size());
+        }
+        Serial.printf("[SDLOG][D] Writing CSV Headers, is_newfile = %d, filesize = %d\n", is_newfile_csv, csv.size());
     }
-    csv.flush();
+    // csv.flush();
+    csv.close();
+    csv = filesys->open(csv_path, "a");
+    // Serial.printf("Write hdr end\n");
 }
 
 void SD_LOG::appendCSV(const char *format, ...) { // TODO: maybe implement item based csv append?
@@ -347,6 +365,13 @@ void SD_LOG::appendBufferCSV(const char *format, ...) {
     va_end(args);
     if (is_startline_csv) {
         char *headers = new char[128];
+#ifdef HAS_RTC
+        sprintf(headers, "%.2f,", rtc.getTemperature());
+        large_buffer_csv += headers;
+#else
+        sprintf(headers, "null,");
+        large_buffer_csv += headers;
+#endif
         sprintf(headers, "%1.2f,%llu,", battery.readVoltage() * 2, millis64());
         large_buffer_csv += headers;
         if (getLocalTime(&timein, 1)) {

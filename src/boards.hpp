@@ -28,9 +28,10 @@ extern DISPLAY_MODEL *u8g2;
 
 #ifdef HAS_RTC
 
-#include <DS3231.h>
+// #include <DS3231.h>
+#include <RTClib.h>
 
-extern DS3231 rtc;
+extern RTC_DS3231 rtc;
 #endif
 
 #ifndef OLED_WIRE_PORT

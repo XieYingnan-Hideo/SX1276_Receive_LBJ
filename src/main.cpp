@@ -34,14 +34,16 @@
 #define FD_TASK_TIMEOUT 750 // ms
 #define FD_TASK_ATTEMPTS 3
 #define LED_ON_TIME 200 // ms
-#define TARGET_FREQ 821.2375
 //region Variables
 SX1276 radio = new Module(RADIO_CS_PIN, RADIO_DIO0_PIN, RADIO_RST_PIN, RADIO_DIO1_PIN);
 // receiving packets requires connection
 // to the module direct output pin
 const int pin = RADIO_BUSY_PIN;
 //float rssi = 0;
-//float fer = 0;
+float fer = 0;
+float fers[32]{};
+float actual_frequency = 0;
+float freq_last = 0;
 // create Pager client instance using the FSK module
 PagerClient pager(&radio);
 // timers
@@ -52,16 +54,25 @@ uint64_t led_timer = 0;
 uint64_t timer4 = 0;
 // uint64_t wdt_timer = 0;
 uint64_t net_timer = 0;
+uint64_t prb_timer = 0;
+uint32_t prb_count = 0;
 uint32_t ip_last = 0;
 // TODO: Add Temperature based dynamic ppm adjustment.
 float ppm = 6;
-float actual_freq = (float) ((TARGET_FREQ * ppm) / 1e6 + TARGET_FREQ);
+
+inline float actualFreq(float bias) {
+    actual_frequency = (float) ((TARGET_FREQ * bias) / 1e6 + TARGET_FREQ);
+    return actual_frequency;
+}
+
+bool freq_correction = true;
 bool is_startline = true;
 bool exec_init_f80 = false;
 // bool agc_triggered = false;
 bool low_volt_warned = false;
 bool give_tel_rssi = false;
 bool give_tel_gain = false;
+bool tel_set_ppm = false;
 bool no_wifi = false;
 bool have_cd = false;
 SD_LOG sd1;
@@ -71,7 +82,6 @@ struct data_bond *db = nullptr;
 //endregion
 
 //region Functions
-
 void formatDataTask(void *pVoid);
 
 void simpleFormatTask();
@@ -79,6 +89,10 @@ void simpleFormatTask();
 void initFmtVars();
 
 void handleSerialInput();
+
+void freqCorrection();
+
+void handlePreamble();
 
 TaskHandle_t task_fd;
 enum task_states {
@@ -128,16 +142,16 @@ void showInitComp() {
     String ipa = WiFi.localIP().toString();
     u8g2->drawStr(0, 64, ipa.c_str());
     if (have_sd && WiFiClass::status() == WL_CONNECTED)
-        u8g2->drawStr(83, 64, "D");
+        u8g2->drawStr(89, 64, "D");
     else if (have_sd)
-        u8g2->drawStr(83, 64, "L");
+        u8g2->drawStr(89, 64, "L");
     else if (WiFiClass::status() == WL_CONNECTED)
-        u8g2->drawStr(83, 64, "N");
+        u8g2->drawStr(89, 64, "N");
     char buffer[32];
     sprintf(buffer, "%2d", ets_get_cpu_frequency() / 10);
-    u8g2->drawStr(91, 64, buffer);
+    u8g2->drawStr(96, 64, buffer);
     sprintf(buffer, "%1.2f", battery.readVoltage() * 2);
-    u8g2->drawStr(105, 64, buffer);
+    u8g2->drawStr(108, 64, buffer);
     // top (0,0,128,8)
     if (!getLocalTime(&time_info, 0))
         u8g2->drawStr(0, 7, "NO SNTP");
@@ -163,6 +177,10 @@ void updateInfo() {
                 time_info.tm_hour, time_info.tm_min);
         u8g2->drawStr(0, 7, buffer);
     }
+#ifdef HAS_RTC
+    sprintf(buffer, "%dC", (int) rtc.getTemperature());
+    u8g2->drawStr(80, 7, buffer);
+#endif
     // update bottom
     u8g2->setDrawColor(0);
     u8g2->drawBox(0, 56, 128, 8);
@@ -172,14 +190,16 @@ void updateInfo() {
         u8g2->drawStr(0, 64, ipa.c_str());
     } else
         u8g2->drawStr(0, 64, "WIFI OFF");
+    sprintf(buffer, "%.1f", getBias(actual_frequency));
+    u8g2->drawStr(73, 64, buffer);
     if (sd1.status() && WiFiClass::status() == WL_CONNECTED)
-        u8g2->drawStr(83, 64, "D");
+        u8g2->drawStr(89, 64, "D");
     else if (sd1.status())
-        u8g2->drawStr(83, 64, "L");
+        u8g2->drawStr(89, 64, "L");
     else if (WiFiClass::status() == WL_CONNECTED)
-        u8g2->drawStr(83, 64, "N");
+        u8g2->drawStr(89, 64, "N");
     sprintf(buffer, "%2d", ets_get_cpu_frequency() / 10);
-    u8g2->drawStr(91, 64, buffer);
+    u8g2->drawStr(96, 64, buffer);
     voltage = battery.readVoltage() * 2;
     sprintf(buffer, "%1.2f", voltage); // todo: Implement average voltage reading.
     if (voltage < 3.15 && !low_volt_warned) {
@@ -187,7 +207,7 @@ void updateInfo() {
         sd1.append("低压警告，电池电压%1.2fV\n", voltage);
         low_volt_warned = true;
     }
-    u8g2->drawStr(105, 64, buffer);
+    u8g2->drawStr(108, 64, buffer);
     u8g2->sendBuffer();
 }
 
@@ -425,7 +445,7 @@ void LBJTEST() {
 
 int initPager() {// initialize SX1276 with default settings
 
-    int state = radio.beginFSK(434.0, 4.8, 5.0, 15.6);
+    int state = radio.beginFSK(434.0, 4.8, 5.0, 12.5);
     RADIOLIB_ASSERT(state)
 
     state = radio.setGain(1);
@@ -433,10 +453,12 @@ int initPager() {// initialize SX1276 with default settings
 
     // initialize Pager client
     // Serial.print(F("[Pager] Initializing ... "));
-    // base (center) frequency: 821.2375 MHz + 0.005 FE
+    // base (center) frequency: 821.2375 MHz + ppm
     // speed:                   1200 bps
-    state = pager.begin(actual_freq, 1200, false, 2500);
+    state = pager.begin(actualFreq(ppm), 1200, false, 2500);
     RADIOLIB_ASSERT(state)
+
+    freq_last = actual_frequency;
 
     // start receiving POCSAG messages
     // Serial.print(F("[Pager] Starting to listen ... "));
@@ -444,6 +466,9 @@ int initPager() {// initialize SX1276 with default settings
     state = pager.startReceive(pin, 1234000, 0xFFFF0);
     //TODO Enhancement: try to keep a open address filter, we might find something unknown.
     RADIOLIB_ASSERT(state)
+
+    // state = radio.setFrequency(actual_freq);
+    // RADIOLIB_ASSERT(state)
 
     return state;
 }
@@ -465,7 +490,8 @@ void setup() {
 
 #ifdef HAS_RTC
     // rtc.begin();
-    rtc.getDateTime(time_info);
+    // rtc.getDateTime(time_info);
+    time_info = rtcLibtoC(rtc.now());
     Serial.println(&time_info, "[eRTC] RTC Time %Y-%m-%d %H:%M:%S ");
     timeSync(time_info); // sync system time from rtc
     Serial.printf("SYS Time %s\n", fmtime(time_info));
@@ -516,7 +542,7 @@ void setup() {
     int state = initPager();
     if (state == RADIOLIB_ERR_NONE) {
         Serial.println(F("success."));
-        Serial.printf("[SX1276] Actual Frequency %f MHz, ppm %.1f\n", actual_freq, ppm);
+        Serial.printf("[SX1276] Actual Frequency %f MHz, ppm %.1f\n", actualFreq(ppm), ppm);
     } else {
         Serial.print(F("failed, code "));
         Serial.println(state);
@@ -569,6 +595,20 @@ void handleTelnetCall() {
     if (give_tel_gain) {
         telnet.printf("> Gain Pos %d \n", radio.getGain());
         give_tel_gain = false;
+        telnet.print("< ");
+    }
+    if (tel_set_ppm) {
+        int16_t state = radio.setFrequency(actualFreq(ppm));
+        if (state == RADIOLIB_ERR_NONE) {
+            telnet.printf("> Actual Frequency %f MHz\n", actualFreq(ppm));
+            Serial.printf("[Telnet] > Actual Frequency %f MHz\n", actualFreq(ppm));
+        }
+        else {
+            telnet.printf("> Failure, Code %d\n", state);
+            Serial.printf("[Telnet] > Failure, Code %d\n", state);
+        }
+        telnet.printf("> ppm set to %.f\n",ppm);
+        tel_set_ppm = false;
         telnet.print("< ");
     }
 }
@@ -649,6 +689,25 @@ void loop() {
     //     Serial.printf("WDT_RST %d [%llu]\n",r,t);
     // }
 
+    // freqCorrection();
+
+    if (prb_timer != 0 && millis64() - prb_timer > 600 && rxInfo.timer == 0) {
+        prb_count = 0;
+        if (actual_frequency != freq_last) {
+            actual_frequency = freq_last;
+            int state = radio.setFrequency(actual_frequency);
+            if (state != RADIOLIB_ERR_NONE) {
+                Serial.printf("[D] Freq Alter failed %d\n", state);
+            } else {
+                Serial.printf("[D] Freq Altered %f \n", actual_frequency);
+            }
+        }
+        for (auto &i: fers) {
+            i = 0;
+        }
+        prb_timer = 0;
+    }
+
     // if task complete, de-initialize
     if (fd_state == TASK_DONE) {
         if (task_fd != nullptr) {
@@ -680,8 +739,8 @@ void loop() {
     }
 
     handleSerialInput();
-
     checkNetwork();
+    handleTelnet();
     handleTelnetCall();
 
     if (millis64() > 60000 && format_task_timer == 0 &&
@@ -761,7 +820,8 @@ void loop() {
 //        setCpuFrequencyMhz(80);
         changeCpuFreq(80);
 
-    handleTelnet();
+    handlePreamble();
+
     handleSync();
 
     // the number of batches to wait for
@@ -777,12 +837,25 @@ void loop() {
         rxInfo.rssi = rxInfo.rssi / (float) rxInfo.cnt;
         rxInfo.cnt = 0;
         rxInfo.timer = 0;
+        prb_timer = 0;
 
 //        Serial.printf("CPU FREQ TO %d MHz\n",ets_get_cpu_frequency());
 
         // PagerClient::pocsag_data pocdat[POCDAT_SIZE];
         // struct lbj_data lbj;
         // pd = new PagerClient::pocsag_data[POCDAT_SIZE];
+
+        Serial.printf("[D] Prb_count %d\n", prb_count);
+        if (prb_count > 0)
+            rxInfo.fer = fers[prb_count - 1];
+        for (int i = 0; i < prb_count; ++i) {
+            Serial.printf("[D] Fer %.2f Hz\n", fers[i]);
+            fers[i] = 0;
+        }
+        // Serial.printf("[D] Fer %.2f Hz\n", fer);
+        // fer = 0;
+        prb_count = 0;
+        rxInfo.ppm = getBias(actual_frequency);
 
         Serial.println(F("[Pager] Received pager data, decoding ... "));
         sd1.append(2, "正在解码信号...\n");
@@ -791,6 +864,7 @@ void loop() {
         // String str = {};
 
         if (state == RADIOLIB_ERR_NONE) {
+            freq_last = actual_frequency;
 //            Serial.printf("success.\n");
             digitalWrite(BOARD_LED, LED_ON);
             format_task_timer = millis64();
@@ -856,6 +930,61 @@ void loop() {
     }
 }
 
+void handlePreamble() {
+    // todo: unable to use this function, try to fix this.
+    if (pager.gotPreambleState() && !pager.gotSyncState() && freq_correction) {
+        if (prb_count == 0)
+            prb_timer = millis64();
+        // if (millis64() - prb_timer > 500) {
+        //     prb_count = 0;
+        //     if (actual_frequency != freq_last) {
+        //         actual_frequency = freq_last;
+        //         int state = radio.setFrequency(actual_frequency);
+        //         if (state != RADIOLIB_ERR_NONE) {
+        //             Serial.printf("[D] Freq Alter failed %d\n", state);
+        //         }
+        //     }
+        //     for (auto &i: fers) {
+        //         i = 0;
+        //     }
+        // }
+        ++prb_count;
+        if (prb_count < 16) {
+            fers[prb_count - 1] = radio.getFrequencyError();
+            if ((fers[prb_count - 1] > 1000.0 || fers[prb_count - 1] < -1000.0) && prb_count != 1 &&
+                abs(fers[prb_count - 1] - fers[prb_count - 2]) < 500) {
+                auto target_freq = (float) (actual_frequency + fers[prb_count - 1] * 1e-6);
+                int state = radio.setFrequency(target_freq);
+                if (state != RADIOLIB_ERR_NONE) {
+                    Serial.printf("[D] Freq Alter failed %d, target freq %f\n", state, target_freq);
+                } else {
+                    actual_frequency = target_freq;
+                    Serial.printf("[D] Freq Altered %f \n", actual_frequency);
+                }
+            }
+        }
+    }
+}
+
+void freqCorrection() {
+    if (rtc.getTemperature() < 10 && runtime_timer == 0 && !pager.gotSyncState() && ppm != 3) {
+        ppm = 3;
+        int16_t state = radio.setFrequency(actualFreq(ppm));
+        if (state == RADIOLIB_ERR_NONE)
+            Serial.printf("[SX1276] Change Actual Frequency to %f MHz\n", actualFreq(ppm));
+        else
+            Serial.printf("Failure, Code %d\n", state);
+    }
+    if (rtc.getTemperature() > 10 && runtime_timer == 0 && !pager.gotSyncState() && ppm != 6) {
+        ppm = 6;
+        int16_t state = radio.setFrequency(actualFreq(ppm));
+        if (state == RADIOLIB_ERR_NONE)
+            Serial.printf("[SX1276] Change Actual Frequency to %f MHz\n", actualFreq(ppm));
+        else
+            Serial.printf("Failure, Code %d\n", state);
+    }
+}
+
 void handleSerialInput() {
     if (Serial.available()) {
         String in = Serial.readStringUntil('\r');
@@ -865,8 +994,10 @@ void handleSerialInput() {
             Serial.println("$ Task state " + String(fd_state));
         else if (in == "rtc") {
 #ifdef HAS_RTC
-            rtc.getDateTime(time_info);
-            float temp = rtc.readTemperature();
+            // rtc.getDateTime(time_info);
+            // DateTime now = rtc.now();
+            time_info = rtcLibtoC(rtc.now());
+            float temp = rtc.getTemperature();
             Serial.print(&time_info, "$ [eRTC] %Y-%m-%d %H:%M:%S ");
             Serial.printf("Temp: %.2f °C\n", temp);
 #endif
@@ -885,7 +1016,6 @@ void handleSerialInput() {
                 sd1.append("[SDLOG] SD卡将被卸载\n");
                 sd1.end();
                 Serial.println("$ [SDLOG] SD end.");
-                sd1.append("this msg should never get to sd.\n");
             }
         } else if (in == "sd begin") {
             if (sd1.status())
@@ -902,6 +1032,31 @@ void handleSerialInput() {
         } else if (in == "rst") {
             esp_reset_reason_t reason = esp_reset_reason();
             Serial.printf("$ RST: %s\n", printResetReason(reason).c_str());
+        } else if (in == "ppm") {
+            if (runtime_timer == 0 && !pager.gotSyncState()) {
+                ppm = 3;
+                int16_t state = radio.setFrequency(actualFreq(ppm));
+                if (state == RADIOLIB_ERR_NONE)
+                    Serial.printf("$ Actual Frequency %f MHz\n", actualFreq(ppm));
+                else
+                    Serial.printf("$ Failure, Code %d\n", state);
+            } else {
+                Serial.println("$ Unable to change frequency due to occupation");
+                if (pager.available())
+                    Serial.println("$ pager.available == true");
+                if (runtime_timer)
+                    Serial.printf("$ runtime_timer = %llu, running %llu\n", runtime_timer, millis64() - runtime_timer);
+            }
+        } else if (in == "ppm read") {
+            Serial.printf("$ ppm %.1f\n", ppm);
+        } else if (in == "afc off") {
+            prb_count = 0;
+            prb_timer = 0;
+            freq_correction = false;
+            Serial.println("$ Frequency Correction Disabled");
+        } else if (in == "afc on") {
+            freq_correction = true;
+            Serial.println("$ Frequency Correction Enabled");
         }
     }
 }
@@ -911,6 +1066,11 @@ void initFmtVars() {
     runtime_timer = 0;
     rxInfo.rssi = 0;
     rxInfo.fer = 0;
+    rxInfo.ppm = 0;
+    // prb_count = 0;
+    // for (auto &i: fers) {
+    //     i = 0;
+    // }
     if (db != nullptr) {
         delete db;
         db = nullptr;

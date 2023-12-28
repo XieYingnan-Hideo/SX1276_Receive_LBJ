@@ -79,9 +79,11 @@ void timeAvailable(struct timeval *t) {
     Serial.println(&time_info, "[SNTP] %Y-%m-%d %H:%M:%S");
 #ifdef HAS_RTC
     getLocalTime(&time_info);
-    rtc.setDateTime(time_info);
+    rtc.adjust(rtcLibtoC(time_info));
+    // rtc.setDateTime(time_info);
     auto timer = esp_timer_get_time();
-    rtc.getDateTime(ti2);
+    ti2 = rtcLibtoC(rtc.now());
+    // rtc.getDateTime(ti2);
     Serial.print(&ti2, "[eRTC] Time set to %Y-%m-%d %H:%M:%S ");
     Serial.printf("[%lld]\n", esp_timer_get_time() - timer);
 #endif
@@ -124,6 +126,25 @@ char *fmtms(uint64_t ms) {
                 ms % 86400000 % 3600000 / 60000, (double) (ms % 86400000 % 3600000 % 60000) / 1000);
 
     return buffer;
+}
+
+tm rtcLibtoC(const DateTime &datetime) {
+    tm time{};
+    time.tm_year = datetime.year() - 1900;
+    time.tm_mon = datetime.month() - 1;
+    time.tm_mday = datetime.day();
+    time.tm_wday = datetime.dayOfTheWeek();
+    time.tm_yday = 0;
+    time.tm_hour = datetime.hour();
+    time.tm_min = datetime.minute();
+    time.tm_sec = datetime.second();
+    time.tm_isdst = 0;
+    return time;
+}
+
+DateTime rtcLibtoC(const tm &ctime) {
+    DateTime now(ctime.tm_year + 1900, ctime.tm_mon + 1, ctime.tm_mday, ctime.tm_hour, ctime.tm_min, ctime.tm_sec);
+    return now;
 }
 
 /* ------------------------------------------------ */
@@ -217,6 +238,39 @@ void onTelnetInput(String str) {
                     telnet.println("> False.");
             } else
                 telnet.println("> Unknown Command.");
+        }
+        if (args[0] == "afc") {
+            if (args[1] == "off") {
+                prb_count = 0;
+                prb_timer = 0;
+                freq_correction = false;
+                telnet.println("> Frequency Correction Disabled");
+                Serial.println("[Telnet] > Frequency Correction Disabled");
+            }
+            else if (args[1] == "on") {
+                freq_correction = true;
+                telnet.println("> Frequency Correction Enabled");
+                Serial.println("[Telnet] > Frequency Correction Enabled");
+            }
+        }
+        if (args[0] == "ppm") {
+            if (args[1].length() != 0 ){
+                bool valid = true;
+                bool point = false;
+                for (auto c:args[1]){
+                    if (!isDigit(c)) {
+                        if (c == '.'&& !point)
+                            point = true;
+                        else
+                            valid = false;
+                    }
+                }
+                if (valid) {
+                    ppm = std::stof(args[1].c_str());
+                    tel_set_ppm = true;
+                } else
+                    telnet.println("> Invalid Format, float only.");
+            }
         }
     }
 
@@ -725,7 +779,8 @@ void printDataSerial(PagerClient::pocsag_data *p, const struct lbj_data &l, cons
             else
                 Serial.printf("%s \n", l.pos_lon);
             Serial.printf("----------------------------------------------------------------------------------\n");
-            Serial.printf("[RXI] [R:%3.1f dBm/F:%4.2f Hz]\n", r.rssi, r.fer);
+            Serial.printf("[RXI] [R:%3.1f dBm/F:%4.2f Hz/%.2f ppm/P:%.2f]\n", r.rssi, r.fer,
+                          getBias((float) (actual_frequency + r.fer * 1e-6)), r.ppm);
             for (size_t i = 0; i < POCDAT_SIZE; i++) {
                 if (p[i].is_empty)
                     continue;
@@ -741,7 +796,8 @@ void printDataSerial(PagerClient::pocsag_data *p, const struct lbj_data &l, cons
         }
     }
     if (l.type != 1) {
-        Serial.printf("[R:%3.1f dBm/F:%5.2f Hz]", r.rssi, r.fer);
+        Serial.printf("[R:%3.1f dBm/F:%5.2f Hz/%.2f ppm/P:%.2f]\n", r.rssi, r.fer,
+                      getBias((float) (actual_frequency + r.fer * 1e-6)), r.ppm);
         for (size_t i = 0; i < POCDAT_SIZE; i++) {
             if (p[i].is_empty)
                 continue;
@@ -797,7 +853,8 @@ void appendDataLog(PagerClient::pocsag_data *p, const struct lbj_data &l, const 
                 sd1.appendBuffer("%s \n", l.pos_lon);
             sd1.appendBuffer(
                     "----------------------------------------------------------------------------------\n");
-            sd1.appendBuffer("[RXI] [R:%3.1f dBm/F:%4.2f Hz]\n", r.rssi, r.fer);
+            sd1.appendBuffer("[RXI] [R:%3.1f dBm/F:%4.2f Hz/%.2f ppm/P:%.2f]\n", r.rssi, r.fer,
+                             getBias((float) (actual_frequency + r.fer * 1e-6)), r.ppm);
             for (size_t i = 0; i < POCDAT_SIZE; i++) {
                 if (p[i].is_empty)
                     continue;
@@ -815,7 +872,9 @@ void appendDataLog(PagerClient::pocsag_data *p, const struct lbj_data &l, const 
         }
     }
     if (l.type != 1) {
-        sd1.appendBuffer("[R:%3.1f dBm/F:%5.2f Hz]", r.rssi, r.fer);
+        // sd1.appendBuffer("[R:%3.1f dBm/F:%5.2f Hz/P:%.1f]", r.rssi, r.fer, r.ppm);
+        sd1.appendBuffer("[R:%3.1f dBm/F:%5.2f Hz/%.2f ppm/P:%.2f]\n", r.rssi, r.fer,
+                         getBias((float) (actual_frequency + r.fer * 1e-6)), r.ppm);
         for (size_t i = 0; i < POCDAT_SIZE; i++) {
             if (p[i].is_empty)
                 continue;
@@ -869,7 +928,9 @@ void printDataTelnet(PagerClient::pocsag_data *p, const struct lbj_data &l, cons
             else
                 telPrintf(true, "%s \n", l.pos_lon);
             telPrintf(true, "----------------------------------------------------------------------------------\n");
-            telPrintf(true, "[RXI] [R:%3.1f dBm/F:%4.2f Hz]\n", r.rssi, r.fer);
+            // telPrintf(true, "[RXI] [R:%3.1f dBm/F:%4.2f Hz]\n", r.rssi, r.fer);
+            telPrintf(true, "[RXI] [R:%3.1f dBm/F:%4.2f Hz/%.2f ppm/P:%.2f]\n", r.rssi, r.fer,
+                      getBias((float) (actual_frequency + r.fer * 1e-6)), r.ppm);
             for (size_t i = 0; i < POCDAT_SIZE; i++) {
                 if (p[i].is_empty)
                     continue;
@@ -885,11 +946,14 @@ void printDataTelnet(PagerClient::pocsag_data *p, const struct lbj_data &l, cons
         }
     }
     if (l.type != 1) {
-        telPrintf(true, "[R:%3.1f dBm/F:%5.2f Hz]\n", r.rssi, r.fer);
+        // telPrintf(true, "[R:%3.1f dBm/F:%5.2f Hz]\n", r.rssi, r.fer);
+        telPrintf(true, "[R:%3.1f dBm/F:%5.2f Hz/%.2f ppm/P:%.2f]\n", r.rssi, r.fer,
+                  getBias((float) (actual_frequency + r.fer * 1e-6)), r.ppm);
     }
 }
 
 void appendDataCSV(PagerClient::pocsag_data *p, const struct lbj_data &l, const struct rx_info &r) {
+    // 电压,温度,系统时间,日期,时间,LBJ时间,方向,级别,车次,速度,公里标,机车编号,线路,纬度,经度,HEX,RSSI,FER,PPM(FER),PPM(CURRENT),原始数据,错误,错误率
     // 电压,系统时间,日期,时间,LBJ时间,方向,级别,车次,速度,公里标,机车编号,线路,纬度,经度,HEX,RSSI,FER,原始数据,错误,错误率
     // LBJ时间,方向,级别,车次,速度,公里标,机车编号,线路,纬度,经度,HEX,RSSI,FER,原始数据,错误,错误率
     switch (l.type) {
@@ -920,7 +984,9 @@ void appendDataCSV(PagerClient::pocsag_data *p, const struct lbj_data &l, const 
                 sd1.appendBufferCSV("%s°%2s′,", l.pos_lon_deg, l.pos_lon_min);
             else
                 sd1.appendBufferCSV("%s,", l.pos_lon);
-            sd1.appendBufferCSV("\"%s\",%3.1f,%4.2f,", l.info2_hex.c_str(), r.rssi, r.fer);
+            // sd1.appendBufferCSV("\"%s\",%3.1f,%4.2f,", l.info2_hex.c_str(), r.rssi, r.fer);
+            sd1.appendBufferCSV("\"%s\",%3.1f,%4.2f,%.2f,%.2f,", l.info2_hex.c_str(), r.rssi, r.fer,
+                                getBias((float) (actual_frequency + r.fer * 1e-6)), r.ppm);
             sd1.appendBufferCSV("\"");
             uint8_t err_ttl = 0, err_un = 0, len = 0;
             for (size_t i = 0; i < POCDAT_SIZE; i++) {
@@ -937,12 +1003,17 @@ void appendDataCSV(PagerClient::pocsag_data *p, const struct lbj_data &l, const 
             break;
         }
         case 2: {
-            sd1.appendBufferCSV("%s,,,,,,,,,,,", l.time); //time,dir,cls,num,spd,pos,reg,rte,lat,lon,hex,
+            if (strcmp(l.time, "<NUL>") != 0)
+                sd1.appendBufferCSV("%s,,,,,,,,,,,", l.time); //time,dir,cls,num,spd,pos,reg,rte,lat,lon,hex,
+            else
+                sd1.appendBufferCSV("null,,,,,,,,,,,");
             break;
         }
     }
     if (l.type != 1 && !p[0].is_empty) {
-        sd1.appendBufferCSV("%3.1f,%5.2f,\"", r.rssi, r.fer);
+        // sd1.appendBufferCSV("%3.1f,%5.2f,\"", r.rssi, r.fer);
+        sd1.appendBufferCSV("%3.1f,%5.2f,%.2f,%.2f,\"", r.rssi, r.fer,
+                            getBias((float) (actual_frequency + r.fer * 1e-6)), r.ppm);
         uint8_t err_un = 0, err_ttl = 0, len = 0;
         for (size_t i = 0; i < POCDAT_SIZE; i++) {
             if (p[i].is_empty)
@@ -957,4 +1028,8 @@ void appendDataCSV(PagerClient::pocsag_data *p, const struct lbj_data &l, const 
         sd1.appendBufferCSV("%d/%d,%.2f%%\n", err_un, err_ttl, ((float) err_ttl / (float) len) * 100);
     }
     sd1.sendBufferCSV();
+}
+
+float getBias(float freq) {
+    return (float) ((freq - TARGET_FREQ) * 1e6 / TARGET_FREQ);
 }

@@ -21,6 +21,8 @@
 #define LBJ_INFO2_ADDR 1234002
 #define LBJ_SYNC_ADDR 1234008
 
+#define TARGET_FREQ 821.2375 // MHz
+
 #define FUNCTION_DOWN 1
 #define FUNCTION_UP 3
 
@@ -51,6 +53,7 @@ struct lbj_data {
 struct rx_info {
     float rssi = 0;
     float fer = 0;
+    float ppm = 0;
     uint32_t cnt = 0;
     uint64_t timer = 0;
 };
@@ -79,7 +82,13 @@ extern bool is_startline;
 extern SD_LOG sd1;
 extern bool give_tel_rssi;
 extern bool give_tel_gain;
+extern bool tel_set_ppm;
 extern bool no_wifi;
+extern float actual_frequency;
+extern uint64_t prb_timer;
+extern uint32_t prb_count;
+extern float ppm;
+extern bool freq_correction;
 
 bool isConnected();
 
@@ -136,5 +145,11 @@ void appendDataLog(PagerClient::pocsag_data *p, const struct lbj_data &l, const 
 void printDataTelnet(PagerClient::pocsag_data *p, const struct lbj_data &l, const struct rx_info &r);
 
 void appendDataCSV(PagerClient::pocsag_data *p, const struct lbj_data &l, const struct rx_info &r);
+
+float getBias(float freq);
+
+tm rtcLibtoC(const DateTime& datetime);
+
+DateTime rtcLibtoC(const tm &ctime);
 
 #endif //PAGER_RECEIVE_NETWORKS_HPP

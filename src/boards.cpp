@@ -14,7 +14,7 @@ SPIClass SDSPI(HSPI);
 bool have_sd = false;
 
 #ifdef HAS_RTC
-DS3231 rtc;
+RTC_DS3231 rtc;
 #endif
 
 uint64_t millis64() {
