@@ -2,17 +2,17 @@
 // Created by FLN1021 on 2023/9/2.
 //
 
-#ifndef PAGER_RECEIVE_NETWORKS_H
-#define PAGER_RECEIVE_NETWORKS_H
+#ifndef PAGER_RECEIVE_NETWORKS_HPP
+#define PAGER_RECEIVE_NETWORKS_HPP
 
 #include <WiFi.h>
 #include <ctime>
 #include "esp_sntp.h"
 #include "ESPTelnet.h"
 #include <RadioLib.h>
-#include "unicon.h"
-#include "sdlog.h"
-#include "boards.h"
+#include "unicon.hpp"
+#include "sdlog.hpp"
+#include "boards.hpp"
 #include "loco.h"
 #include "freertos/FreeRTOS.h"
 
@@ -20,6 +20,8 @@
 #define LBJ_INFO_ADDR 1234000
 #define LBJ_INFO2_ADDR 1234002
 #define LBJ_SYNC_ADDR 1234008
+
+#define TARGET_FREQ 821.2375 // MHz
 
 #define FUNCTION_DOWN 1
 #define FUNCTION_UP 3
@@ -51,6 +53,7 @@ struct lbj_data {
 struct rx_info {
     float rssi = 0;
     float fer = 0;
+    float ppm = 0;
     uint32_t cnt = 0;
     uint64_t timer = 0;
 };
@@ -79,7 +82,13 @@ extern bool is_startline;
 extern SD_LOG sd1;
 extern bool give_tel_rssi;
 extern bool give_tel_gain;
+extern bool tel_set_ppm;
 extern bool no_wifi;
+extern float actual_frequency;
+extern uint64_t prb_timer;
+extern uint32_t prb_count;
+extern float ppm;
+extern bool freq_correction;
 
 bool isConnected();
 
@@ -90,6 +99,12 @@ void silentConnect(const char *ssid, const char *password);
 void changeCpuFreq(uint32_t freq_mhz);
 
 void timeAvailable(struct timeval *t);
+
+void timeSync(struct tm &time);
+
+char *fmtime(const struct tm &time);
+
+char *fmtms(uint64_t ms);
 
 void onTelnetConnect(String ip);
 
@@ -108,6 +123,8 @@ void timeTask(void *pVoid);
 //extern bool ipChanged(uint16_t interval);
 
 int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l);
+
+int8_t hexToChar(int8_t hex1, int8_t hex2);
 
 void recodeBCD(const char *c, String *v);
 
@@ -129,4 +146,10 @@ void printDataTelnet(PagerClient::pocsag_data *p, const struct lbj_data &l, cons
 
 void appendDataCSV(PagerClient::pocsag_data *p, const struct lbj_data &l, const struct rx_info &r);
 
-#endif //PAGER_RECEIVE_NETWORKS_H
+float getBias(float freq);
+
+tm rtcLibtoC(const DateTime& datetime);
+
+DateTime rtcLibtoC(const tm &ctime);
+
+#endif //PAGER_RECEIVE_NETWORKS_HPP

@@ -90,6 +90,7 @@ public:
     */
     int16_t begin(float base, uint16_t speed, bool invert = false, uint16_t shift = RADIOLIB_PAGER_FREQ_SHIFT_HZ);
 
+    int16_t changeFreq(float base);
     /*!
       \brief Method to send a tone-only alert to a destination pager.
       \param addr Address of the destination pager. Allowed values are 0 to 2097151 - values above 2000000 are reserved.
@@ -148,6 +149,8 @@ public:
     int16_t startReceive(uint32_t pin, uint32_t addr, uint32_t mask = 0xFFFFF);
 
     bool gotSyncState();
+
+    bool gotPreambleState();
 
     /*!
       \brief Get the number of POCSAG batches available in buffer. Limited by the size of direct mode buffer!

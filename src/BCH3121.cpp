@@ -19,7 +19,7 @@
 // #include "Config.h"
 // #include "Globals.h"
 #include <Arduino.h>
-#include "BCH3121.h"
+#include "BCH3121.hpp"
 
 /*
  *   This is a BCH(31,21) implementation, designed for POCSAG
@@ -79,7 +79,7 @@ void CBCH3121::encode(uint32_t &data) {
         data |= 0x01U;
 }
 
-bool CBCH3121::decode(uint32_t &data, uint16_t &errors) {
+bool CBCH3121::decode(uint32_t &data, uint16_t &errors, bool &parity) {
     int8_t S1_3, tmp, X1, X2;
     uint8_t cnt = 0U;
     uint8_t Q = 0U;
@@ -90,7 +90,13 @@ bool CBCH3121::decode(uint32_t &data, uint16_t &errors) {
 
     if (m_S1 == -1 && m_S3 == -1) {
         // return if no errors
-        errors += check_parity(data);
+        auto var = calc_parity(data);
+        if (var) {
+            parity = false;
+            // Serial.println("Parity check 0 failed.");
+        }
+        // errors += check_parity(data);
+        errors += var;
         return true;
     } else {
         // Calculate S1^3 in GF(2^5):
@@ -100,7 +106,19 @@ bool CBCH3121::decode(uint32_t &data, uint16_t &errors) {
         if (S1_3 == m_S3) {
             // Correct single error
             data ^= (0x01U << (m_S1 + 1U));
-            errors += check_parity(data) + 1U;
+            // errors = 1U;
+            // if (!calc_parity(data))
+            //     return true;
+            // else {
+            //     Serial.println("Parity check 1 failed.");
+            //     return false;
+            // }
+            auto var = calc_parity(data);
+            if (var) {
+                parity = false;
+                // Serial.println("Parity check 1 failed.");
+            }
+            errors += var + 1U;
             return true;
         } else { // More than 1 errors
 
@@ -146,7 +164,20 @@ bool CBCH3121::decode(uint32_t &data, uint16_t &errors) {
             data ^= (0x80000000U >> (locator[0U] - 1U));
             data ^= (0x80000000U >> (locator[1U] - 1U));
 
-            errors += check_parity(data) + 2U;
+            // errors = 2U;
+            //
+            // if (!calc_parity(data))
+            //     return true;
+            // else {
+            //     Serial.println("Parity check 2 failed.");
+            //     return false;
+            // }
+            auto var = calc_parity(data);
+            if (var) {
+                // Serial.println("Parity check 2 failed.");
+                parity = false;
+            }
+            errors += var + 2U;
 
             return true;
         }

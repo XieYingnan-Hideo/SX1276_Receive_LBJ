@@ -2,7 +2,7 @@
 // Created by FLN1021 on 2023/9/2.
 //
 
-#include "networks.h"
+#include "networks.hpp"
 
 /* ------------------------------------------------ */
 ESPTelnet telnet;
@@ -56,9 +56,9 @@ void changeCpuFreq(uint32_t freq_mhz) {
             setCpuFrequencyMhz(freq_mhz);
     } else {
         // Serial.println("[D] CALL WIFI OFF");
-        auto timer = millis();
+        auto timer = millis64();
         WiFiClass::mode(WIFI_OFF);
-        Serial.printf("[D] WIFI OFF [%lu] \n", millis() - timer);
+        Serial.printf("[D] WIFI OFF [%llu] \n", millis64() - timer);
         if (ets_get_cpu_frequency() != freq_mhz)
             setCpuFrequencyMhz(freq_mhz);
         WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -73,9 +73,20 @@ void changeCpuFreq(uint32_t freq_mhz) {
 /* ------------------------------------------------ */
 
 void timeAvailable(struct timeval *t) {
+    tm ti2{};
     Serial.println("[SNTP] Got time adjustment from NTP!");
     getLocalTime(&time_info);
     Serial.println(&time_info, "[SNTP] %Y-%m-%d %H:%M:%S");
+#ifdef HAS_RTC
+    getLocalTime(&time_info);
+    rtc.adjust(rtcLibtoC(time_info));
+    // rtc.setDateTime(time_info);
+    auto timer = esp_timer_get_time();
+    ti2 = rtcLibtoC(rtc.now());
+    // rtc.getDateTime(ti2);
+    Serial.print(&ti2, "[eRTC] Time set to %Y-%m-%d %H:%M:%S ");
+    Serial.printf("[%lld]\n", esp_timer_get_time() - timer);
+#endif
 }
 
 //void printLocalTime()
@@ -87,6 +98,54 @@ void timeAvailable(struct timeval *t) {
 //    }
 //    Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
 //}
+
+void timeSync(struct tm &time) {
+    time_t t = mktime(&time);
+    struct timeval now = {.tv_sec = t};
+    settimeofday(&now, nullptr);
+}
+
+char *fmtime(const struct tm &time) {
+    static char buffer[20];
+    sprintf(buffer, "%d-%02d-%02d %02d:%02d:%02d", time.tm_year + 1900, time.tm_mon + 1, time.tm_mday, time.tm_hour,
+            time.tm_min, time.tm_sec);
+    return buffer;
+}
+
+char *fmtms(uint64_t ms) {
+    static char buffer[40];
+    if (ms < 60000) // seconds
+        sprintf(buffer, "%.3f Seconds", (double) ms / 1000);
+    else if (ms < 3600000) // minutes
+        sprintf(buffer, "%llu Minutes %.3f Seconds", ms / 60000, (double) (ms % 60000) / 1000);
+    else if (ms < 86400000) // hours
+        sprintf(buffer, "%llu Hours %llu Minutes %.3f Seconds", ms / 3600000, ms % 3600000 / 60000,
+                (double) (ms % 3600000 % 60000) / 1000);
+    else // days
+        sprintf(buffer, "%llu Days %llu Hours %llu Minutes %.3f Seconds", ms / 86400000, ms % 86400000 / 3600000,
+                ms % 86400000 % 3600000 / 60000, (double) (ms % 86400000 % 3600000 % 60000) / 1000);
+
+    return buffer;
+}
+
+tm rtcLibtoC(const DateTime &datetime) {
+    tm time{};
+    time.tm_year = datetime.year() - 1900;
+    time.tm_mon = datetime.month() - 1;
+    time.tm_mday = datetime.day();
+    time.tm_wday = datetime.dayOfTheWeek();
+    time.tm_yday = 0;
+    time.tm_hour = datetime.hour();
+    time.tm_min = datetime.minute();
+    time.tm_sec = datetime.second();
+    time.tm_isdst = 0;
+    return time;
+}
+
+DateTime rtcLibtoC(const tm &ctime) {
+    DateTime now(ctime.tm_year + 1900, ctime.tm_mon + 1, ctime.tm_mday, ctime.tm_hour, ctime.tm_min, ctime.tm_sec);
+    return now;
+}
 
 /* ------------------------------------------------ */
 
@@ -180,6 +239,39 @@ void onTelnetInput(String str) {
             } else
                 telnet.println("> Unknown Command.");
         }
+        if (args[0] == "afc") {
+            if (args[1] == "off") {
+                prb_count = 0;
+                prb_timer = 0;
+                freq_correction = false;
+                telnet.println("> Frequency Correction Disabled");
+                Serial.println("[Telnet] > Frequency Correction Disabled");
+            }
+            else if (args[1] == "on") {
+                freq_correction = true;
+                telnet.println("> Frequency Correction Enabled");
+                Serial.println("[Telnet] > Frequency Correction Enabled");
+            }
+        }
+        if (args[0] == "ppm") {
+            if (args[1].length() != 0 ){
+                bool valid = true;
+                bool point = false;
+                for (auto c:args[1]){
+                    if (!isDigit(c)) {
+                        if (c == '.'&& !point)
+                            point = true;
+                        else
+                            valid = false;
+                    }
+                }
+                if (valid) {
+                    ppm = std::stof(args[1].c_str());
+                    tel_set_ppm = true;
+                } else
+                    telnet.println("> Invalid Format, float only.");
+            }
+        }
     }
 
     // checks for a certain command
@@ -248,7 +340,7 @@ void timeTask(void *pVoid) {
 
 //bool ipChanged(uint16_t interval, uint64_t *timer, uint32_t *last_ip) {
 //    uint32_t ip1 = WiFi.localIP();
-//    if (millis()-timer >= interval){
+//    if (millis64()-timer >= interval){
 //        if (WiFi.localIP() != ip1){
 //            return true;
 //        }
@@ -264,7 +356,7 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l) {
             continue;
         switch (p[i].addr) {
             case LBJ_INFO_ADDR: {
-                if (!p[i].func && (p[i].str[0] == '-' || p[i].str[0] == '*') &&
+                if (!p[i].func && p[i].len == 5 && (p[i].str[0] == '-' || p[i].str[0] == '*') &&
                     (p[i].str[1] && p[i].str[2] && p[i].str[3] && p[i].str[4] != '-')) {
 
                     p[i].addr = LBJ_SYNC_ADDR; // don't know if addr = 1234008 can perform this.
@@ -357,6 +449,7 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l) {
 
                 // locomotive registry number.
                 if (buffer.length() >= 12 && buffer[4] != 'X' && buffer[5] != 'X' && buffer[10] != 'X') {
+                    //fixme: buffer.length() seems cause crash occasionally, inspect later.
                     for (size_t c = 4, v = 0; c < 12; c++, v++) {
                         l->loco[v] = buffer[c];
                     }
@@ -365,8 +458,9 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l) {
                         if (isdigit(l->loco[c]))
                             type += l->loco[c];
                     }
-                    if (type.length() == 3)
+                    if (type.length() == 3 && type.toInt() < (sizeof locos / sizeof locos[0]) && type.toInt() >= 0) {
                         l->loco_type = locos[std::stoi(type.c_str())];
+                    }
                 }
 
                 // positions lon
@@ -405,22 +499,18 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l) {
                     // this is very likely the most ugly code I've ever written, I apologize for that.
                     size_t c = 0;
                     for (size_t v = 0; v < 3; v++, c++) {
-                        int a = isdigit(l->info2_hex[v]) ? (l->info2_hex[v] - '0') : (l->info2_hex[v] - '0' - 7),
-                                b = isdigit(l->info2_hex[v + 1]) ? (l->info2_hex[++v] - '0') : (l->info2_hex[++v] -
-                                                                                                '0' - 7);
-                        auto ch = (int8_t) ((a << 4) | b);
+                        int8_t ch = hexToChar(l->info2_hex[v], l->info2_hex[v + 1]);
+                        ++v;
                         if (ch > 0x1F && ch < 0x7F && ch != 0x22)
                             l->lbj_class[c] = ch;
                     }
                 }
-                // to GBK for route.
+                // to GB2312 for route.
                 if (l->info2_hex.length() >= 20 && l->info2_hex[14] != 'X' && l->info2_hex[15] != 'X') { // Character 1
                     size_t c = 0;
                     for (size_t v = 14; v < 17; v++, c++) {
-                        int a = isdigit(l->info2_hex[v]) ? (l->info2_hex[v] - '0') : (l->info2_hex[v] - '0' - 7),
-                                b = isdigit(l->info2_hex[v + 1]) ? (l->info2_hex[++v] - '0') : (l->info2_hex[++v] -
-                                                                                                '0' - 7);
-                        auto ch = (int8_t) ((a << 4) | b);
+                        int8_t ch = hexToChar(l->info2_hex[v], l->info2_hex[v + 1]);
+                        ++v;
                         if ((uint8_t) ch >= 0xA0 || ch == 0x20)
                             l->route[c] = ch;
                     }
@@ -428,10 +518,8 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l) {
                 if (l->info2_hex.length() >= 25 && l->info2_hex[18] != 'X' && l->info2_hex[20] != 'X') {// Character 2
                     size_t c = 2;
                     for (size_t v = 18; v < 21; v++, c++) {
-                        int a = isdigit(l->info2_hex[v]) ? (l->info2_hex[v] - '0') : (l->info2_hex[v] - '0' - 7),
-                                b = isdigit(l->info2_hex[v + 1]) ? (l->info2_hex[++v] - '0') : (l->info2_hex[++v] -
-                                                                                                '0' - 7);
-                        auto ch = (int8_t) ((a << 4) | b);
+                        int8_t ch = hexToChar(l->info2_hex[v], l->info2_hex[v + 1]);
+                        ++v;
                         if ((uint8_t) ch >= 0xA0 || ch == 0x20)
                             l->route[c] = ch;
                     }
@@ -439,10 +527,8 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l) {
                 if (l->info2_hex.length() >= 30 && l->info2_hex[22] != 'X' && l->info2_hex[25] != 'X') {// Character 3,4
                     size_t c = 4;
                     for (size_t v = 22; v < 29; v++, c++) {
-                        int a = isdigit(l->info2_hex[v]) ? (l->info2_hex[v] - '0') : (l->info2_hex[v] - '0' - 7),
-                                b = isdigit(l->info2_hex[v + 1]) ? (l->info2_hex[++v] - '0') : (l->info2_hex[++v] -
-                                                                                                '0' - 7);
-                        auto ch = (int8_t) ((a << 4) | b);
+                        int8_t ch = hexToChar(l->info2_hex[v], l->info2_hex[v + 1]);
+                        ++v;
                         if ((uint8_t) ch >= 0xA0 || ch == 0x20)
                             l->route[c] = ch;
                     }
@@ -453,7 +539,7 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l) {
             case LBJ_SYNC_ADDR: {
                 lbj_sync:
                 l->type = 2;
-                if (p[i].str.length() == 5 && p[i].str[0] != 'X') {
+                if (p[i].str.length() >= 5 && p[i].str[0] != 'X') {
                     for (size_t c = 1, v = 0; c < 5; c++, v++) {
                         l->time[v] = p[i].str[c];
                         if (c == 2)
@@ -466,6 +552,23 @@ int16_t readDataLBJ(struct PagerClient::pocsag_data *p, struct lbj_data *l) {
     }
 
     return 0;
+}
+
+int8_t hexToChar(int8_t hex1, int8_t hex2) {
+    // int a = isdigit(l->info2_hex[v]) ? (l->info2_hex[v] - '0') : (l->info2_hex[v] - '0' - 7),
+    //         b = isdigit(l->info2_hex[v + 1]) ? (l->info2_hex[++v] - '0') : (l->info2_hex[++v] -
+    //                                                                         '0' - 7);
+    uint8_t a, b;
+    if (isdigit(hex1))
+        a = hex1 - 0x30;
+    else
+        a = hex1 - 0x37;
+    if (isdigit(hex2))
+        b = hex2 - 0x30;
+    else
+        b = hex2 - 0x37;
+
+    return (int8_t) ((a << 4) | b);
 }
 
 void recodeBCD(const char *c, String *v) {
@@ -676,7 +779,8 @@ void printDataSerial(PagerClient::pocsag_data *p, const struct lbj_data &l, cons
             else
                 Serial.printf("%s \n", l.pos_lon);
             Serial.printf("----------------------------------------------------------------------------------\n");
-            Serial.printf("[RXI] [R:%3.1f dBm/F:%4.2f Hz]\n", r.rssi, r.fer);
+            Serial.printf("[RXI] [R:%3.1f dBm/F:%4.2f Hz/%.2f ppm/P:%.2f]\n", r.rssi, r.fer,
+                          getBias((float) (actual_frequency + r.fer * 1e-6)), r.ppm);
             for (size_t i = 0; i < POCDAT_SIZE; i++) {
                 if (p[i].is_empty)
                     continue;
@@ -692,7 +796,8 @@ void printDataSerial(PagerClient::pocsag_data *p, const struct lbj_data &l, cons
         }
     }
     if (l.type != 1) {
-        Serial.printf("[R:%3.1f dBm/F:%5.2f Hz]", r.rssi, r.fer);
+        Serial.printf("[R:%3.1f dBm/F:%5.2f Hz/%.2f ppm/P:%.2f]\n", r.rssi, r.fer,
+                      getBias((float) (actual_frequency + r.fer * 1e-6)), r.ppm);
         for (size_t i = 0; i < POCDAT_SIZE; i++) {
             if (p[i].is_empty)
                 continue;
@@ -748,7 +853,8 @@ void appendDataLog(PagerClient::pocsag_data *p, const struct lbj_data &l, const 
                 sd1.appendBuffer("%s \n", l.pos_lon);
             sd1.appendBuffer(
                     "----------------------------------------------------------------------------------\n");
-            sd1.appendBuffer("[RXI] [R:%3.1f dBm/F:%4.2f Hz]\n", r.rssi, r.fer);
+            sd1.appendBuffer("[RXI] [R:%3.1f dBm/F:%4.2f Hz/%.2f ppm/P:%.2f]\n", r.rssi, r.fer,
+                             getBias((float) (actual_frequency + r.fer * 1e-6)), r.ppm);
             for (size_t i = 0; i < POCDAT_SIZE; i++) {
                 if (p[i].is_empty)
                     continue;
@@ -766,7 +872,9 @@ void appendDataLog(PagerClient::pocsag_data *p, const struct lbj_data &l, const 
         }
     }
     if (l.type != 1) {
-        sd1.appendBuffer("[R:%3.1f dBm/F:%5.2f Hz]", r.rssi, r.fer);
+        // sd1.appendBuffer("[R:%3.1f dBm/F:%5.2f Hz/P:%.1f]", r.rssi, r.fer, r.ppm);
+        sd1.appendBuffer("[R:%3.1f dBm/F:%5.2f Hz/%.2f ppm/P:%.2f]\n", r.rssi, r.fer,
+                         getBias((float) (actual_frequency + r.fer * 1e-6)), r.ppm);
         for (size_t i = 0; i < POCDAT_SIZE; i++) {
             if (p[i].is_empty)
                 continue;
@@ -820,7 +928,9 @@ void printDataTelnet(PagerClient::pocsag_data *p, const struct lbj_data &l, cons
             else
                 telPrintf(true, "%s \n", l.pos_lon);
             telPrintf(true, "----------------------------------------------------------------------------------\n");
-            telPrintf(true, "[RXI] [R:%3.1f dBm/F:%4.2f Hz]\n", r.rssi, r.fer);
+            // telPrintf(true, "[RXI] [R:%3.1f dBm/F:%4.2f Hz]\n", r.rssi, r.fer);
+            telPrintf(true, "[RXI] [R:%3.1f dBm/F:%4.2f Hz/%.2f ppm/P:%.2f]\n", r.rssi, r.fer,
+                      getBias((float) (actual_frequency + r.fer * 1e-6)), r.ppm);
             for (size_t i = 0; i < POCDAT_SIZE; i++) {
                 if (p[i].is_empty)
                     continue;
@@ -836,11 +946,14 @@ void printDataTelnet(PagerClient::pocsag_data *p, const struct lbj_data &l, cons
         }
     }
     if (l.type != 1) {
-        telPrintf(true, "[R:%3.1f dBm/F:%5.2f Hz]\n", r.rssi, r.fer);
+        // telPrintf(true, "[R:%3.1f dBm/F:%5.2f Hz]\n", r.rssi, r.fer);
+        telPrintf(true, "[R:%3.1f dBm/F:%5.2f Hz/%.2f ppm/P:%.2f]\n", r.rssi, r.fer,
+                  getBias((float) (actual_frequency + r.fer * 1e-6)), r.ppm);
     }
 }
 
 void appendDataCSV(PagerClient::pocsag_data *p, const struct lbj_data &l, const struct rx_info &r) {
+    // 电压,温度,系统时间,日期,时间,LBJ时间,方向,级别,车次,速度,公里标,机车编号,线路,纬度,经度,HEX,RSSI,FER,PPM(FER),PPM(CURRENT),原始数据,错误,错误率
     // 电压,系统时间,日期,时间,LBJ时间,方向,级别,车次,速度,公里标,机车编号,线路,纬度,经度,HEX,RSSI,FER,原始数据,错误,错误率
     // LBJ时间,方向,级别,车次,速度,公里标,机车编号,线路,纬度,经度,HEX,RSSI,FER,原始数据,错误,错误率
     switch (l.type) {
@@ -871,7 +984,9 @@ void appendDataCSV(PagerClient::pocsag_data *p, const struct lbj_data &l, const 
                 sd1.appendBufferCSV("%s°%2s′,", l.pos_lon_deg, l.pos_lon_min);
             else
                 sd1.appendBufferCSV("%s,", l.pos_lon);
-            sd1.appendBufferCSV("\"%s\",%3.1f,%4.2f,", l.info2_hex.c_str(), r.rssi, r.fer);
+            // sd1.appendBufferCSV("\"%s\",%3.1f,%4.2f,", l.info2_hex.c_str(), r.rssi, r.fer);
+            sd1.appendBufferCSV("\"%s\",%3.1f,%4.2f,%.2f,%.2f,", l.info2_hex.c_str(), r.rssi, r.fer,
+                                getBias((float) (actual_frequency + r.fer * 1e-6)), r.ppm);
             sd1.appendBufferCSV("\"");
             uint8_t err_ttl = 0, err_un = 0, len = 0;
             for (size_t i = 0; i < POCDAT_SIZE; i++) {
@@ -888,12 +1003,17 @@ void appendDataCSV(PagerClient::pocsag_data *p, const struct lbj_data &l, const 
             break;
         }
         case 2: {
-            sd1.appendBufferCSV("%s,,,,,,,,,,,", l.time); //time,dir,cls,num,spd,pos,reg,rte,lat,lon,hex,
+            if (strcmp(l.time, "<NUL>") != 0)
+                sd1.appendBufferCSV("%s,,,,,,,,,,,", l.time); //time,dir,cls,num,spd,pos,reg,rte,lat,lon,hex,
+            else
+                sd1.appendBufferCSV("null,,,,,,,,,,,");
             break;
         }
     }
     if (l.type != 1 && !p[0].is_empty) {
-        sd1.appendBufferCSV("%3.1f,%5.2f,\"", r.rssi, r.fer);
+        // sd1.appendBufferCSV("%3.1f,%5.2f,\"", r.rssi, r.fer);
+        sd1.appendBufferCSV("%3.1f,%5.2f,%.2f,%.2f,\"", r.rssi, r.fer,
+                            getBias((float) (actual_frequency + r.fer * 1e-6)), r.ppm);
         uint8_t err_un = 0, err_ttl = 0, len = 0;
         for (size_t i = 0; i < POCDAT_SIZE; i++) {
             if (p[i].is_empty)
@@ -908,4 +1028,8 @@ void appendDataCSV(PagerClient::pocsag_data *p, const struct lbj_data &l, const 
         sd1.appendBufferCSV("%d/%d,%.2f%%\n", err_un, err_ttl, ((float) err_ttl / (float) len) * 100);
     }
     sd1.sendBufferCSV();
+}
+
+float getBias(float freq) {
+    return (float) ((freq - TARGET_FREQ) * 1e6 / TARGET_FREQ);
 }

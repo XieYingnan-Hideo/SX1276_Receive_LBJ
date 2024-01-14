@@ -345,6 +345,17 @@ int16_t PhysicalLayer::setDirectSyncWord(uint32_t syncWord, uint8_t len) {
 }
 
 void PhysicalLayer::updateDirectBuffer(uint8_t bit) {
+  // check preamble
+  // Serial.printf("I am running on Core %d \n",xPortGetCoreID());
+  if(!this->gotPreamble && !this->gotSync) {
+    this->preambleBuffer <<=1;
+    this->preambleBuffer |= bit;
+
+    if (this->preambleBuffer == 0xAAAAAAAAAAAAAAAA || this->preambleBuffer == 0x5555555555555555) {
+      this->gotPreamble = true;
+    }
+  }
+
   // check sync word
   if(!this->gotSync) {
     this->syncBuffer <<= 1;

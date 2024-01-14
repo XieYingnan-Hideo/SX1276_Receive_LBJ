@@ -1,4 +1,4 @@
 .pio
 logs
 .vscode
-/.idea/modules.xml
+/COREDUMP*.bin

@@ -26,6 +26,14 @@
 extern DISPLAY_MODEL *u8g2;
 #endif
 
+#ifdef HAS_RTC
+
+// #include <DS3231.h>
+#include <RTClib.h>
+
+extern RTC_DS3231 rtc;
+#endif
+
 #ifndef OLED_WIRE_PORT
 #define OLED_WIRE_PORT Wire
 #endif
@@ -315,6 +323,8 @@ extern SPIClass SDSPI;
 extern bool have_sd;
 
 void initBoard();
+
+uint64_t millis64(); // 64 bit version of millis(), overflow after 292471.2 years.
 
 #endif // BOARDS_H
 

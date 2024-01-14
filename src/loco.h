@@ -160,7 +160,7 @@ static const char *locos[] = { // todo try not to use static, we are running out
         "神州",
         "NJ2",
         "东风7G", // DF7G?
-        "",
+        "NDJ3",
         "",
         "",
         "",
@@ -169,7 +169,7 @@ static const char *locos[] = { // todo try not to use static, we are running out
         "",
         "HXN3",
         "HXN5",
-        "", // HXN3B?
+        "HXN3B",
         "",
         "",
         "",
@@ -252,7 +252,7 @@ static const char *locos[] = { // todo try not to use static, we are running out
         "HXD1D",
         "HXD2D",
         "HXD3D",
-        "",
+        "HXD3CA",
         "",
         "",
         "",
@@ -313,7 +313,7 @@ static const char *locos[] = { // todo try not to use static, we are running out
         // EMU
         "CRH1",
         "CRH2",
-        "",
+        "", // CRH3?
         "",
         "CRH5",
         "CRH380A",

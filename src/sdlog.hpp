@@ -2,8 +2,8 @@
 // Created by FLN1021 on 2023/9/5.
 //
 
-#ifndef PAGER_RECEIVE_SDLOG_H
-#define PAGER_RECEIVE_SDLOG_H
+#ifndef PAGER_RECEIVE_SDLOG_HPP
+#define PAGER_RECEIVE_SDLOG_HPP
 
 #include <SD.h>
 #include <FS.h>
@@ -11,10 +11,11 @@
 #include <ctime>
 #include "utilities.h"
 #include "ESPTelnet.h"
-#include "boards.h"
+#include "boards.hpp"
 
 #define MAX_LOG_SIZE 500000 // 500000 default
 #define MAX_CSV_SIZE 500000
+#define LOG_VERBOSITY 0
 
 class SD_LOG {
 public:
@@ -28,13 +29,23 @@ public:
 
     int beginCSV(const char *path);
 
+    int beginCD(const char *path);
+
+    void appendCD(const uint8_t *data, size_t size);
+
+    void endCD();
+
     void getFilenameCSV(const char *path);
 
     void append(const char *format, ...);
 
+    void append(int level, const char *format, ...);
+
     void appendCSV(const char *format, ...);
 
     void appendBuffer(const char *format, ...);
+
+    void appendBuffer(int level, const char *format, ...);
 
     void sendBufferLOG();
 
@@ -42,11 +53,15 @@ public:
 
     void sendBufferCSV();
 
-    void printTel(int chars, ESPTelnet &tel);
+    void printTel(unsigned int chars, ESPTelnet &tel);
 
     File logFile(char op);
 
     void reopen();
+
+    void end();
+
+    static void reopenSD();
 
     void disableSizeCheck();
 
@@ -68,11 +83,13 @@ private:
     String large_buffer_csv;
     File log;
     File csv;
+    File cd;
     int log_count; // Actual file count - 1. =0 default
     char filename[32]; // =""
     char filename_csv[32];
     bool sd_log; // = false
     bool sd_csv;
+    bool sd_cd;
 //    bool have_sd = false;
 //    bool haveNTP = false;
     bool is_newfile; // = false
@@ -87,4 +104,4 @@ private:
 };
 
 
-#endif //PAGER_RECEIVE_SDLOG_H
+#endif //PAGER_RECEIVE_SDLOG_HPP
