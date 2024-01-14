@@ -66,6 +66,7 @@ inline float actualFreq(float bias) {
 }
 
 bool freq_correction = true;
+// bool bandwidth_altered = false;
 bool is_startline = true;
 bool exec_init_f80 = false;
 // bool agc_triggered = false;
@@ -615,6 +616,10 @@ void handleTelnetCall() {
 
 void handleSync() {
     if (pager.gotSyncState()) {
+        // if (bandwidth_altered) {
+        //     radio.setBandwidth(12.5);
+        //     bandwidth_altered = false;
+        // }
 //        sd1.append("[PGR][DEBUG] SYNC DETECTED.\n");
         // INFO: This function can not work, calling agc here stops receiving.
         //    if (radio.getRSSI() >= -60.0 && !agc_triggered){
@@ -950,13 +955,24 @@ void handlePreamble() {
         // }
         ++prb_count;
         if (prb_count < 16) {
+            // todo: Implement automatic bandwidth adjustment.
+            // if (prb_count == 1) {
+            //     radio.setBandwidth(20.8);
+            //     bandwidth_altered = true;
+            // }
+            // else if (prb_count > 6 && bandwidth_altered) {
+            //     radio.setBandwidth(12.5);
+            //     bandwidth_altered = false;
+            // }
             fers[prb_count - 1] = radio.getFrequencyError();
             if ((fers[prb_count - 1] > 1000.0 || fers[prb_count - 1] < -1000.0) && prb_count != 1 &&
                 abs(fers[prb_count - 1] - fers[prb_count - 2]) < 500) {
+                // Perform frequency correction
                 auto target_freq = (float) (actual_frequency + fers[prb_count - 1] * 1e-6);
                 int state = radio.setFrequency(target_freq);
                 if (state != RADIOLIB_ERR_NONE) {
                     Serial.printf("[D] Freq Alter failed %d, target freq %f\n", state, target_freq);
+                    sd1.append("[D] Freq Alter failed %d, target freq %f\n", state, target_freq);
                 } else {
                     actual_frequency = target_freq;
                     Serial.printf("[D] Freq Altered %f \n", actual_frequency);
