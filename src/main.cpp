@@ -57,7 +57,6 @@ uint64_t net_timer = 0;
 uint64_t prb_timer = 0;
 uint32_t prb_count = 0;
 uint32_t ip_last = 0;
-// TODO: Add Temperature based dynamic ppm adjustment.
 float ppm = 6;
 
 inline float actualFreq(float bias) {
@@ -271,8 +270,8 @@ void showLBJ1(const struct lbj_data &l) {
     else if (l.direction == FUNCTION_DOWN)
         u8g2->drawUTF8(68, 31, "下");
     else {
-        printf(buffer, "%d", l.direction);
-        u8g2->drawUTF8(68, 31, buffer);
+        sprintf(buffer, "%d", l.direction);
+        u8g2->drawStr(71, 31, buffer);
     }
     u8g2->setDrawColor(1);
     sprintf(buffer, "%sK", l.position);
@@ -452,6 +451,8 @@ int initPager() {// initialize SX1276 with default settings
     state = radio.setGain(1);
     RADIOLIB_ASSERT(state)
 
+    // state = radio.setRxBandwidth(25);
+    // RADIOLIB_ASSERT(state)
     // initialize Pager client
     // Serial.print(F("[Pager] Initializing ... "));
     // base (center) frequency: 821.2375 MHz + ppm
@@ -471,7 +472,7 @@ int initPager() {// initialize SX1276 with default settings
     // state = radio.setFrequency(actual_freq);
     // RADIOLIB_ASSERT(state)
 
-    return state;
+    return (state);
 }
 //endregion
 
@@ -603,12 +604,11 @@ void handleTelnetCall() {
         if (state == RADIOLIB_ERR_NONE) {
             telnet.printf("> Actual Frequency %f MHz\n", actualFreq(ppm));
             Serial.printf("[Telnet] > Actual Frequency %f MHz\n", actualFreq(ppm));
-        }
-        else {
+        } else {
             telnet.printf("> Failure, Code %d\n", state);
             Serial.printf("[Telnet] > Failure, Code %d\n", state);
         }
-        telnet.printf("> ppm set to %.f\n",ppm);
+        telnet.printf("> ppm set to %.f\n", ppm);
         tel_set_ppm = false;
         telnet.print("< ");
     }
@@ -616,9 +616,11 @@ void handleTelnetCall() {
 
 void handleSync() {
     if (pager.gotSyncState()) {
-        // if (bandwidth_altered) {
-        //     radio.setBandwidth(12.5);
-        //     bandwidth_altered = false;
+        // if (!bandwidth_altered) {
+        //     int16_t state = radio.swapRxBandwidth(12.5);
+        //     Serial.printf("[D] Channelize, code %d\n",state);
+        //     radio.restartReceive(true);
+        //     bandwidth_altered = true;
         // }
 //        sd1.append("[PGR][DEBUG] SYNC DETECTED.\n");
         // INFO: This function can not work, calling agc here stops receiving.
@@ -628,19 +630,12 @@ void handleSync() {
         //        Serial.printf("[SX1276] AGC Triggered. Current Gain Pos %d\n",radio.getGain());
         //        agc_triggered = true;
         //    }
-        if (rxInfo.cnt < 5 && (rxInfo.timer == 0 || esp_timer_get_time() - rxInfo.timer > 11000 ||
-                               esp_timer_get_time() - rxInfo.timer < 0)) {
-            // It seems the micros will overflow, causing the program to stuck here. （真的吗...）
+        if (rxInfo.cnt < 5 && (rxInfo.timer == 0 || esp_timer_get_time() - rxInfo.timer < 11000)) {
             float rssi = radio.getRSSI(false, true);
-            // if (rssi >= -80.0 && !agc_triggered){
-            //     radio.startAGC();
-            //     Serial.printf("[SX1276] AGC Triggered. Current Gain Pos %d\n",radio.getGain());
-            //     agc_triggered = true;
-            // }
             rxInfo.timer = esp_timer_get_time();
-            rxInfo.rssi += rssi; // decreased number of rssi samples due to READ-DATA task running on spi bus.
-            // Serial.printf("[D] RXI %.2f\n",rxInfo.rssi);
+            rxInfo.rssi += rssi;
             rxInfo.cnt++;
+            Serial.printf("[D] RXI %.2f\n", rxInfo.rssi / rxInfo.cnt);
         }
         if (rxInfo.fer == 0)
             rxInfo.fer = radio.getFrequencyError();
@@ -711,6 +706,7 @@ void loop() {
             i = 0;
         }
         prb_timer = 0;
+        Serial.println("NO SYNC");
     }
 
     // if task complete, de-initialize
@@ -843,6 +839,8 @@ void loop() {
         rxInfo.cnt = 0;
         rxInfo.timer = 0;
         prb_timer = 0;
+        // radio.setRxBandwidth(20.8);
+        // bandwidth_altered = false;
 
 //        Serial.printf("CPU FREQ TO %d MHz\n",ets_get_cpu_frequency());
 
@@ -936,7 +934,6 @@ void loop() {
 }
 
 void handlePreamble() {
-    // todo: unable to use this function, try to fix this.
     if (pager.gotPreambleState() && !pager.gotSyncState() && freq_correction) {
         if (prb_count == 0)
             prb_timer = millis64();
@@ -956,16 +953,19 @@ void handlePreamble() {
         ++prb_count;
         if (prb_count < 16) {
             // todo: Implement automatic bandwidth adjustment.
-            // if (prb_count == 1) {
-            //     radio.setBandwidth(20.8);
+            // if (prb_count > 2 && !bandwidth_altered) {
+            //     int16_t state = radio.swapRxBandwidth(12.5);
+            //     Serial.printf("[D] Bandwidth to 12.5,code %d\n",state);
+            //     radio.restartReceive(true);
             //     bandwidth_altered = true;
             // }
             // else if (prb_count > 6 && bandwidth_altered) {
-            //     radio.setBandwidth(12.5);
+            //     radio.swapRxBandwidth(12.5);
             //     bandwidth_altered = false;
             // }
+            // radio.swapRxBandwidth(12.5);
             fers[prb_count - 1] = radio.getFrequencyError();
-            if ((fers[prb_count - 1] > 1000.0 || fers[prb_count - 1] < -1000.0) && prb_count != 1 &&
+            if (abs(fers[prb_count - 1]) > 1000.0 && prb_count != 1 &&
                 abs(fers[prb_count - 1] - fers[prb_count - 2]) < 500) {
                 // Perform frequency correction
                 auto target_freq = (float) (actual_frequency + fers[prb_count - 1] * 1e-6);
@@ -975,29 +975,10 @@ void handlePreamble() {
                     sd1.append("[D] Freq Alter failed %d, target freq %f\n", state, target_freq);
                 } else {
                     actual_frequency = target_freq;
-                    Serial.printf("[D] Freq Altered %f \n", actual_frequency);
+                    Serial.printf("[D] Freq Altered %f MHz, FEI %.2f Hz\n", actual_frequency, fers[prb_count - 1]);
                 }
             }
         }
-    }
-}
-
-void freqCorrection() {
-    if (rtc.getTemperature() < 10 && runtime_timer == 0 && !pager.gotSyncState() && ppm != 3) {
-        ppm = 3;
-        int16_t state = radio.setFrequency(actualFreq(ppm));
-        if (state == RADIOLIB_ERR_NONE)
-            Serial.printf("[SX1276] Change Actual Frequency to %f MHz\n", actualFreq(ppm));
-        else
-            Serial.printf("Failure, Code %d\n", state);
-    }
-    if (rtc.getTemperature() > 10 && runtime_timer == 0 && !pager.gotSyncState() && ppm != 6) {
-        ppm = 6;
-        int16_t state = radio.setFrequency(actualFreq(ppm));
-        if (state == RADIOLIB_ERR_NONE)
-            Serial.printf("[SX1276] Change Actual Frequency to %f MHz\n", actualFreq(ppm));
-        else
-            Serial.printf("Failure, Code %d\n", state);
     }
 }
 
@@ -1125,7 +1106,7 @@ void formatDataTask(void *pVoid) {
     // sd1.enableSizeCheck();
 
     printDataTelnet(db->pocsagData, db->lbjData, rxInfo);
-    // Serial.printf("telprint complete.[%llu]", millis64() - runtime_timer);
+    Serial.printf("telprint complete.[%llu]", millis64() - runtime_timer);
     // Serial.printf("[FD-Task] Stack High Mark TRI-OUT %u\n", uxTaskGetStackHighWaterMark(nullptr));
 // Serial.printf("type %d \n",lbj.type);
 
@@ -1139,7 +1120,7 @@ void formatDataTask(void *pVoid) {
         } else if (db->lbjData.type == 2) {
             showLBJ2(db->lbjData);
         }
-        // Serial.printf("Complete u8g2 [%llu]\n", millis64() - runtime_timer);
+        Serial.printf("Complete u8g2 [%llu]\n", millis64() - runtime_timer);
     }
 #endif
     Serial.printf("[FD-Task] Stack High Mark %u\n", uxTaskGetStackHighWaterMark(nullptr));

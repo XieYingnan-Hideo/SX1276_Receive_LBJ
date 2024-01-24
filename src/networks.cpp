@@ -128,6 +128,7 @@ char *fmtms(uint64_t ms) {
     return buffer;
 }
 
+#ifdef HAS_RTC
 tm rtcLibtoC(const DateTime &datetime) {
     tm time{};
     time.tm_year = datetime.year() - 1900;
@@ -146,6 +147,7 @@ DateTime rtcLibtoC(const tm &ctime) {
     DateTime now(ctime.tm_year + 1900, ctime.tm_mon + 1, ctime.tm_mday, ctime.tm_hour, ctime.tm_min, ctime.tm_sec);
     return now;
 }
+#endif
 
 /* ------------------------------------------------ */
 
