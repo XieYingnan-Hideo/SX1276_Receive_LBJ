@@ -345,6 +345,16 @@ int16_t PhysicalLayer::setDirectSyncWord(uint32_t syncWord, uint8_t len) {
 }
 
 void PhysicalLayer::updateDirectBuffer(uint8_t bit) {
+  // check carrier
+  if(!this->gotCarrier && !this->gotPreamble && !this->gotSync) {
+    this->carrierBuffer <<=1;
+    this->carrierBuffer |= bit;
+
+    if (this->carrierBuffer == 0x0000000000000000 || this->carrierBuffer == 0xFFFFFFFFFFFFFFFF) {
+      this->gotCarrier = true;
+    }
+  }
+
   // check preamble
   // Serial.printf("I am running on Core %d \n",xPortGetCoreID());
   if(!this->gotPreamble && !this->gotSync) {
@@ -411,7 +421,7 @@ void PhysicalLayer::setPacketReceivedAction(void (*func)(void)) {
 }
 
 void PhysicalLayer::clearPacketReceivedAction() {
-  
+
 }
 
 void PhysicalLayer::setPacketSentAction(void (*func)(void)) {
@@ -419,7 +429,7 @@ void PhysicalLayer::setPacketSentAction(void (*func)(void)) {
 }
 
 void PhysicalLayer::clearPacketSentAction() {
-  
+
 }
 
 #if defined(RADIOLIB_INTERRUPT_TIMING)

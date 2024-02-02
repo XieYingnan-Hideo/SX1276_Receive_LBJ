@@ -383,11 +383,13 @@ class PhysicalLayer {
     uint8_t buffer[RADIOLIB_STATIC_ARRAY_SIZE];
     uint32_t syncBuffer;
     uint64_t preambleBuffer;
+    uint64_t carrierBuffer;
     uint32_t directSyncWord;
     uint8_t directSyncWordLen;
     uint32_t directSyncWordMask;
     bool gotSync;
     bool gotPreamble;
+    bool gotCarrier;
     #endif
 
     virtual Module* getMod() = 0;

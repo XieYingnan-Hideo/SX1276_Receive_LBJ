@@ -54,7 +54,7 @@ struct rx_info {
     float rssi = 0;
     float fer = 0;
     float ppm = 0;
-    uint32_t cnt = 0;
+    uint16_t cnt = 0;
     uint64_t timer = 0;
 };
 

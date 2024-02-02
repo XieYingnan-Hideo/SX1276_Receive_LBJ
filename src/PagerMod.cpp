@@ -476,6 +476,16 @@ bool PagerClient::gotPreambleState() {
         return false;
 }
 
+bool PagerClient::gotCarrierState() {
+    if (phyLayer->gotCarrier) {
+        phyLayer->gotCarrier = false;
+        phyLayer->carrierBuffer = 0x9877FA3CA50B1DBD; // just a random number,
+        // if initialize to 0 it will consider as a carrier.
+        return true;
+    } else
+        return false;
+}
+
 int16_t PagerClient::changeFreq(float base) {
     baseFreq = base;
     baseFreqRaw = (baseFreq * 1000000.0) / phyLayer->getFreqStep();

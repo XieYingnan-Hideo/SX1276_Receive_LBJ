@@ -39,11 +39,12 @@ SX1276 radio = new Module(RADIO_CS_PIN, RADIO_DIO0_PIN, RADIO_RST_PIN, RADIO_DIO
 // receiving packets requires connection
 // to the module direct output pin
 const int pin = RADIO_BUSY_PIN;
-//float rssi = 0;
-float fer = 0;
+float rssi_cache = 0;
+// float fer = 0;
 float fers[32]{};
 float actual_frequency = 0;
 float freq_last = 0;
+float car_fer_last = 0;
 // create Pager client instance using the FSK module
 PagerClient pager(&radio);
 // timers
@@ -55,7 +56,9 @@ uint64_t timer4 = 0;
 // uint64_t wdt_timer = 0;
 uint64_t net_timer = 0;
 uint64_t prb_timer = 0;
+uint64_t car_timer = 0;
 uint32_t prb_count = 0;
+uint32_t car_count = 0;
 uint32_t ip_last = 0;
 float ppm = 6;
 
@@ -90,9 +93,11 @@ void initFmtVars();
 
 void handleSerialInput();
 
-void freqCorrection();
+void handleCarrier();
 
 void handlePreamble();
+
+void revertFrequency();
 
 TaskHandle_t task_fd;
 enum task_states {
@@ -623,19 +628,13 @@ void handleSync() {
         //     bandwidth_altered = true;
         // }
 //        sd1.append("[PGR][DEBUG] SYNC DETECTED.\n");
-        // INFO: This function can not work, calling agc here stops receiving.
-        //    if (radio.getRSSI() >= -60.0 && !agc_triggered){
-        //        Serial.println("[SX1276][D] AGC TRIGGERED.");
-        //        radio.startAGC();
-        //        Serial.printf("[SX1276] AGC Triggered. Current Gain Pos %d\n",radio.getGain());
-        //        agc_triggered = true;
-        //    }
         if (rxInfo.cnt < 5 && (rxInfo.timer == 0 || esp_timer_get_time() - rxInfo.timer < 11000)) {
             float rssi = radio.getRSSI(false, true);
             rxInfo.timer = esp_timer_get_time();
-            rxInfo.rssi += rssi;
+            // rxInfo.rssi += rssi;
+            rssi_cache += rssi;
             rxInfo.cnt++;
-            Serial.printf("[D] RXI %.2f\n", rxInfo.rssi / rxInfo.cnt);
+            Serial.printf("[D] RXI %.2f\n", rssi_cache / (float) rxInfo.cnt);
         }
         if (rxInfo.fer == 0)
             rxInfo.fer = radio.getFrequencyError();
@@ -690,23 +689,24 @@ void loop() {
     // }
 
     // freqCorrection();
+    // Handle carrier timout.
+    if (car_timer != 0 && millis64() - car_timer > 700 && prb_timer == 0 && rxInfo.timer == 0) {
+        car_count = 0;
+        revertFrequency();
+        car_fer_last = 0;
+        car_timer = 0;
+        Serial.println("[D] CARRIER TIMEOUT.");
+    }
 
+    // Handle preamble timeout.
     if (prb_timer != 0 && millis64() - prb_timer > 600 && rxInfo.timer == 0) {
         prb_count = 0;
-        if (actual_frequency != freq_last) {
-            actual_frequency = freq_last;
-            int state = radio.setFrequency(actual_frequency);
-            if (state != RADIOLIB_ERR_NONE) {
-                Serial.printf("[D] Freq Alter failed %d\n", state);
-            } else {
-                Serial.printf("[D] Freq Altered %f \n", actual_frequency);
-            }
-        }
+        revertFrequency();
         for (auto &i: fers) {
             i = 0;
         }
         prb_timer = 0;
-        Serial.println("NO SYNC");
+        Serial.println("[D] PREAMBLE TIMEOUT.");
     }
 
     // if task complete, de-initialize
@@ -821,6 +821,7 @@ void loop() {
 //        setCpuFrequencyMhz(80);
         changeCpuFreq(80);
 
+    handleCarrier();
     handlePreamble();
 
     handleSync();
@@ -835,10 +836,12 @@ void loop() {
         timer4 = millis64();
         int state = pager.readDataMSA(db->pocsagData, 0);
 //        sd1.append("[PHY-LAYER][D] AVAILABLE > 2.\n");
-        rxInfo.rssi = rxInfo.rssi / (float) rxInfo.cnt;
+        rxInfo.rssi = rssi_cache / (float) rxInfo.cnt;
+        rssi_cache = 0;
         rxInfo.cnt = 0;
         rxInfo.timer = 0;
         prb_timer = 0;
+        car_timer = 0;
         // radio.setRxBandwidth(20.8);
         // bandwidth_altered = false;
 
@@ -849,6 +852,9 @@ void loop() {
         // pd = new PagerClient::pocsag_data[POCDAT_SIZE];
 
         Serial.printf("[D] Prb_count %d\n", prb_count);
+        Serial.printf("[D] Car_count %d\n", car_count);
+        if (prb_count >= 32)
+            prb_count = 31;
         if (prb_count > 0)
             rxInfo.fer = fers[prb_count - 1];
         for (int i = 0; i < prb_count; ++i) {
@@ -858,6 +864,8 @@ void loop() {
         // Serial.printf("[D] Fer %.2f Hz\n", fer);
         // fer = 0;
         prb_count = 0;
+        car_count = 0;
+        car_fer_last = 0;
         rxInfo.ppm = getBias(actual_frequency);
 
         Serial.println(F("[Pager] Received pager data, decoding ... "));
@@ -917,6 +925,7 @@ void loop() {
 //            Serial.printf("failed.\n");
 //            Serial.println("[Pager] Reception failed, too many errors.");
             dualPrintf(true, "[Pager] Reception failed, too many errors. \n");
+            revertFrequency();
 //            sd1.append("[Pager] Reception failed, too many errors. \n");
         } else {
             // some error occurred
@@ -929,6 +938,46 @@ void loop() {
             initFmtVars();
         } else if (fd_state == TASK_CREATED && task_fd == nullptr) {
             fd_state = TASK_DONE;
+        }
+    }
+}
+
+void revertFrequency() {
+    if (actual_frequency != freq_last) {
+        actual_frequency = freq_last;
+        int state = radio.setFrequency(actual_frequency);
+        if (state != RADIOLIB_ERR_NONE) {
+            Serial.printf("[D] Revert freq failed %d\n", state);
+        } else {
+            Serial.printf("[D] Revert to last freq %f MHz, ppm %.2f\n", actual_frequency, getBias(actual_frequency));
+        }
+    }
+}
+
+void handleCarrier() {
+    if (pager.gotCarrierState() && !pager.gotPreambleState() && !pager.gotSyncState() && freq_correction &&
+        prb_timer == 0) {
+        if (car_count == 0)
+            car_timer = millis64();
+        ++car_count;
+        if (car_count < 64) {
+            float fei = radio.getFrequencyError();
+            // Serial.printf("[D] Carrier FEI %.2f Hz, count %d\n",fei,car_count);
+            if (abs(fei) > 1000.0 && car_count != 1 &&
+                abs(fei - car_fer_last) < 500) {
+                // Perform frequency correction
+                auto target_freq = (float) (actual_frequency + fei * 1e-6);
+                int state = radio.setFrequency(target_freq);
+                if (state != RADIOLIB_ERR_NONE) {
+                    Serial.printf("[D][C] Freq Alter failed %d, target freq %f\n", state, target_freq);
+                    sd1.append("[D][C] Freq Alter failed %d, target freq %f\n", state, target_freq);
+                } else {
+                    actual_frequency = target_freq;
+                    Serial.printf("[D][C] Freq Altered %f MHz, FEI %.2f Hz, PPM %.2f\n", actual_frequency, fei,
+                                  getBias(actual_frequency));
+                }
+            }
+            car_fer_last = fei;
         }
     }
 }
@@ -951,7 +1000,7 @@ void handlePreamble() {
         //     }
         // }
         ++prb_count;
-        if (prb_count < 16) {
+        if (prb_count < 32) {
             // todo: Implement automatic bandwidth adjustment.
             // if (prb_count > 2 && !bandwidth_altered) {
             //     int16_t state = radio.swapRxBandwidth(12.5);
@@ -971,11 +1020,12 @@ void handlePreamble() {
                 auto target_freq = (float) (actual_frequency + fers[prb_count - 1] * 1e-6);
                 int state = radio.setFrequency(target_freq);
                 if (state != RADIOLIB_ERR_NONE) {
-                    Serial.printf("[D] Freq Alter failed %d, target freq %f\n", state, target_freq);
-                    sd1.append("[D] Freq Alter failed %d, target freq %f\n", state, target_freq);
+                    Serial.printf("[D][P] Freq Alter failed %d, target freq %f\n", state, target_freq);
+                    sd1.append("[D][P] Freq Alter failed %d, target freq %f\n", state, target_freq);
                 } else {
                     actual_frequency = target_freq;
-                    Serial.printf("[D] Freq Altered %f MHz, FEI %.2f Hz\n", actual_frequency, fers[prb_count - 1]);
+                    Serial.printf("[D][P] Freq Altered %f MHz, FEI %.2f Hz, PPM %.2f\n", actual_frequency,
+                                  fers[prb_count - 1], getBias(actual_frequency));
                 }
             }
         }
@@ -1049,6 +1099,8 @@ void handleSerialInput() {
         } else if (in == "afc off") {
             prb_count = 0;
             prb_timer = 0;
+            car_count = 0;
+            car_timer = 0;
             freq_correction = false;
             Serial.println("$ Frequency Correction Disabled");
         } else if (in == "afc on") {

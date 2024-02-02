@@ -152,6 +152,8 @@ public:
 
     bool gotPreambleState();
 
+    bool gotCarrierState();
+
     /*!
       \brief Get the number of POCSAG batches available in buffer. Limited by the size of direct mode buffer!
       \returns Number of available batches.
