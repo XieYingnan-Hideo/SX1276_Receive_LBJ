@@ -120,8 +120,7 @@ void initBoard() {
 //    if (u8g2) {
 //        u8g2->clearBuffer();
 //    }
-
-    if (!SD.begin(SDCARD_CS, SDSPI)) {
+    if (!SD.begin(SDCARD_CS, SDSPI, 40000000)) {
 
         Serial.println("setupSDCard FAIL");
         if (u8g2) {
