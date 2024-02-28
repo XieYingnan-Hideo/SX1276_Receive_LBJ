@@ -1,5 +1,6 @@
 //
 // Multimon-NG POCSAG BCH(31,21) Correction Functions.
+// From https://github.com/EliasOenal/multimon-ng/blob/master/pocsag.c
 // Migrated by FLN1021 on 2023/9/1.
 //
 
