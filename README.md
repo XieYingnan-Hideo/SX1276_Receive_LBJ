@@ -23,7 +23,7 @@ The schematic of this board can be found [here](https://github.com/Xinyuan-LilyG
 
 Additional functions can be enabled by connecting specific peripheral to the specified pin as following:
 
-#### 1.DS3231 RTC
+#### 1. DS3231 RTC
 Share IIC Bus with on board SSD1306 OLED.
 ```c++
 #define I2C_SDA                     21
@@ -35,7 +35,7 @@ If connected uncomment the following line in [utilities.h](src/utilities.h) whil
 #define HAS_RTC // soldered an external DS3231 module.
 ```
 
-#### 2.AD Buttons(WIP)
+#### 2. AD Buttons (WIP)
 Due to lack of GPIO a four key analog button is used. 
 ```c++
 #define BUTTON_PIN                  34
@@ -80,7 +80,7 @@ In total of 50 nibbles / 200 bits, transmitted in 10 POCSAG frames.
 ### 2. SX1276 Configuration
 - Freq = 821.2375MHz + 6 ppm (default)
 - Mode = FSK, RxDirect (DIO2)
-- Gain = Max + LnaBoost (AGC off)
+- Gain = 001 + LnaBoostHf (AGC off)
 - RxBW = 12.5 kHz
 
 Due to lack of TCXO on the SX1276 module used by the dev board, an automatic frequency adjustment mechanism is 
@@ -123,6 +123,7 @@ If `<NUL>`, `NA`, `********` or part of these characters shows up, it means this
 - [RadioLib](https://github.com/jgromes/RadioLib) (Modified)
 - [U8G2](https://github.com/olikraus/u8g2)
 - [ESP32-Arduino](https://github.com/espressif/arduino-esp32)
+- [PlatformIO](https://platformio.org/)
 - [ESP32AnalogRead](https://github.com/madhephaestus/ESP32AnalogRead.git) (for battery voltage checking)
 - BCH3121.cpp/.h from [POCSAG_HS](https://github.com/phl0/POCSAG_HS)
 - [LilyGo-LoRa-Series](https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series)
@@ -131,4 +132,4 @@ If `<NUL>`, `NA`, `********` or part of these characters shows up, it means this
 - Project inspired by [GoRail_Pager](https://github.com/killeder/GoRail_Pager).
 - More if I can remember, I apologize for that.
 
-Huge thanks to all authors and contributors of the repositories mentioned above.
+Huge thanks to all authors and contributors.
