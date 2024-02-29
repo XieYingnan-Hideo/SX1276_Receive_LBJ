@@ -1,7 +1,7 @@
-# Pager_Receive
-A LBJ Message Receiver Based on TTGO LoRa 32 v1.6.1 (SX1276 868MHz)
+# SX1276_Receive_LBJ
+A LBJ Message Receiver Based on TTGO LoRa 32 v1.6.1 (ESP32 + SX1276 868MHz)
 
-The Pager_Receive project is modified from [RadioLib](https://github.com/jgromes/RadioLib)'s Pager_Receive.ino and 
+The SX1276_Receive_LBJ project is modified from [RadioLib](https://github.com/jgromes/RadioLib)'s Pager_Receive.ino and 
 [LilyGo-LoRa-Series](https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series)'s templates,
 based on the TTGO LoRa 32 v1.6.1 dev board.
 This project aims to provide an alternative solution to the expensive programmable 
@@ -40,7 +40,7 @@ Due to lack of GPIO a four key analog button is used.
 ```c++
 #define BUTTON_PIN                  34
 ```
-Provides input to interactive functions including logs inspection on OLED and device settings(WIP). If connected use
+Provides input to interactive functions including logs inspection and device settings on OLED(WIP). If connected use
 the ***button_equipped*** branch instead of master while building.
 
 More information about pin definitions can be found in [utilities.h](src/utilities.h)
@@ -50,11 +50,11 @@ More information about pin definitions can be found in [utilities.h](src/utiliti
 - Save Received messages to TF card in plain text and CSV format.
 - Host Telnet server and send formatted messages to client.
 - BCH error correction migrated from MMDVM_HS_Hat's [BCH3121.cpp](https://github.com/phl0/POCSAG_HS/blob/master/BCH3121.cpp)
-- Support long messages contains routes, locomotive numbers and geographic coordinates (Experimental).
 
 ## Known Issues
 - Takes a very long time to startup if a large number of files are in TF card.
 - TF card hot-plug is **NOT** supported. Unplug while power on will cause crash after next message receive.
+- Unstable WiFi connection.
 - No multi-client support for Telnet service.
 - No buzzers for alert.
 - Partially decoded or corrupted message will show on display.
@@ -62,9 +62,10 @@ More information about pin definitions can be found in [utilities.h](src/utiliti
 
 ## Details
 ### 1. About LBJ long message
-It does not appear on TB/T 3504-2018 standard. 
-I received this kind of message using SDR while listening to 821.2375MHz. 
-The format of these messages is based purely on guess, currently identified information in one typical long LBJ message is listed in the following chart.  
+It does not appear on `TB/T 3504-2018` standard. 
+I received this kind of messages using SDR while listening to 821.2375MHz. Some train transmits them on 
+POCSAG address `1234002`. The formal name and structure of these messages is unknown, the contents are currently 
+identified by guessing. Current identified information in one typical long LBJ message is listed in the following table.  
 
 | Nibbles(4bit) | Encode  | Meaning                            |
 |---------------|---------|------------------------------------|

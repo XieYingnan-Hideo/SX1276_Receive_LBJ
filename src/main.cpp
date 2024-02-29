@@ -1,4 +1,11 @@
 /*
+   SX1276 LBJ Message Receive Project
+   Migrated by FLN1021 on Sep 2023.
+   Modified from RadioLib Pager (POCSAG) Receive Example.
+   Original file:
+   https://github.com/jgromes/RadioLib/blob/master/examples/Pager/Pager_Receive/Pager_Receive.ino
+*/
+/*
    RadioLib Pager (POCSAG) Receive Example
 
    This example shows how to receive FSK packets without using
